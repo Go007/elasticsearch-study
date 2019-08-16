@@ -1,0 +1,10 @@
+spring:
+  application:
+    name: elasticsearch-study
+  profiles:
+    active: dev
+
+server:
+  port: 9779
+  servlet:
+    context-path: /es
