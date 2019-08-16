@@ -3,6 +3,12 @@ spring:
     name: elasticsearch-study
   profiles:
     active: dev
+  data:
+    elasticsearch:
+      cluster-name: elasticsearch #cluster-name要与elasticsearch.yml中使用的集群名称一致
+      cluster-nodes: localhost:9300
+      repositories:
+        enabled: true
 
 server:
   port: 9779
