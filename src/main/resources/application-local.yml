@@ -1,7 +1,7 @@
 spring:
   data:
     elasticsearch:
-      cluster-name: docker-cluster #cluster-name要与config/elasticsearch.yml中使用的集群名称一致
-      cluster-nodes: localhost:9300
-      repositories:
-        enabled: true
+      host: 172.16.32.35
+      port: 9200
+      maxConnPerRoute: 300
+      maxConnTotal: 500

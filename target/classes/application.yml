@@ -2,7 +2,7 @@ spring:
   application:
     name: elasticsearch-study
   profiles:
-    active: dev
+    active: local
   data:
     elasticsearch:
       cluster-name: elasticsearch #cluster-name要与elasticsearch.yml中使用的集群名称一致
