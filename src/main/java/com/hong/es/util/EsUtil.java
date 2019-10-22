@@ -12,9 +12,9 @@ import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.client.RequestOptions;
 import org.elasticsearch.client.RestClient;
 import org.elasticsearch.client.RestHighLevelClient;
-import org.elasticsearch.client.indices.CreateIndexRequest;
+/*import org.elasticsearch.client.indices.CreateIndexRequest;
 import org.elasticsearch.client.indices.CreateIndexResponse;
-import org.elasticsearch.client.indices.GetIndexRequest;
+import org.elasticsearch.client.indices.GetIndexRequest;*/
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.xcontent.XContentType;
 import org.elasticsearch.index.query.QueryBuilder;
@@ -35,7 +35,7 @@ import java.util.List;
  **/
 @Component
 public class EsUtil {
-
+/*
     @Value("${spring.data.elasticsearch.cluster-nodes}")
     public String host;
 
@@ -91,14 +91,14 @@ public class EsUtil {
         }
     }
 
-    /**
+    *//**
      * Description: 判断某个index是否存在
      *
      * @param index index名
      * @return boolean
      * @author fanxb
      * @date 2019/7/24 14:57
-     */
+     *//*
     public boolean indexExist(String index) throws Exception {
         GetIndexRequest request = new GetIndexRequest(index);
         request.local(false);
@@ -107,14 +107,14 @@ public class EsUtil {
         return client.indices().exists(request, RequestOptions.DEFAULT);
     }
 
-    /**
+    *//**
      * Description: 插入/更新一条记录
      *
      * @param index  index
      * @param entity 对象
      * @author fanxb
      * @date 2019/7/24 15:02
-     */
+     *//*
     public void insertOrUpdateOne(String index, EsEntity entity) {
         IndexRequest request = new IndexRequest(index);
         request.id(entity.getId());
@@ -126,14 +126,14 @@ public class EsUtil {
         }
     }
 
-    /**
+    *//**
      * Description: 批量插入数据
      *
      * @param index index
      * @param list  带插入列表
      * @author fanxb
      * @date 2019/7/24 17:38
-     */
+     *//*
     public void insertBatch(String index, List<EsEntity> list) {
         BulkRequest request = new BulkRequest();
         list.forEach(item -> request.add(new IndexRequest(index).id(item.getId())
@@ -145,14 +145,14 @@ public class EsUtil {
         }
     }
 
-    /**
+    *//**
      * Description: 批量删除
      *
      * @param index  index
      * @param idList 待删除列表
      * @author fanxb
      * @date 2019/7/25 14:24
-     */
+     *//*
     public <T> void deleteBatch(String index, Collection<T> idList) {
         BulkRequest request = new BulkRequest();
         idList.forEach(item -> request.add(new DeleteRequest(index, item.toString())));
@@ -163,7 +163,7 @@ public class EsUtil {
         }
     }
 
-    /**
+    *//**
      * Description: 搜索
      *
      * @param index   index
@@ -172,7 +172,7 @@ public class EsUtil {
      * @return java.util.ArrayList
      * @author fanxb
      * @date 2019/7/25 13:46
-     */
+     *//*
     public <T> List<T> search(String index, SearchSourceBuilder builder, Class<T> c) {
         SearchRequest request = new SearchRequest(index);
         request.source(builder);
@@ -189,14 +189,14 @@ public class EsUtil {
         }
     }
 
-    /**
+    *//**
      * Description: 删除index
      *
      * @param index index
      * @return void
      * @author fanxb
      * @date 2019/7/26 11:30
-     */
+     *//*
     public void deleteIndex(String index) {
         try {
             client.indices().delete(new DeleteIndexRequest(index), RequestOptions.DEFAULT);
@@ -205,14 +205,14 @@ public class EsUtil {
         }
     }
 
-    /**
+    *//**
      * Description: delete by query
      *
      * @param index   index
      * @param builder builder
      * @author fanxb
      * @date 2019/7/26 15:16
-     */
+     *//*
     public void deleteByQuery(String index, QueryBuilder builder) {
         DeleteByQueryRequest request = new DeleteByQueryRequest(index);
         request.setQuery(builder);
@@ -224,6 +224,6 @@ public class EsUtil {
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
-    }
+    }*/
 
 }

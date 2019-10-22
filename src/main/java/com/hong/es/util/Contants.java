@@ -481,7 +481,7 @@ public class Contants {
         ES_INDEX_NAME_ENTERPRISE_RISK_SEARCH = _environment.getProperty("es.index.name.enterprise.risk.search");
 
         //es索引名称-新闻高级搜索
-        ES_INDEX_NEWS_NAME = _environment.getProperty("es.index.news.name");
+        ES_INDEX_NEWS_NAME = "companywarnings"; //_environment.getProperty("es.index.news.name");
 
         ES_COMPANY_RISK_DOCUMENTINFO_URL = _environment.getProperty("es.company.risk.documentinfo.url");
 

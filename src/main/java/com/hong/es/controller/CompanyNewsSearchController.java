@@ -1,8 +1,7 @@
 package com.hong.es.controller;
 
-import com.hong.es.entity.to.BaseOutData;
-import com.hong.es.entity.to.NewsOut;
-import com.hong.es.entity.to.NewsSearchConditon;
+import com.alibaba.fastjson.JSON;
+import com.hong.es.entity.to.*;
 import com.hong.es.util.Contants;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.lucene.search.join.ScoreMode;
@@ -70,7 +69,7 @@ public class CompanyNewsSearchController {
             //构建bool查询
             BoolQueryBuilder boolBuilder = QueryBuilders.boolQuery();
             boolBuilder.must(QueryBuilders.termQuery("_id", newsId));
-            boolBuilder.must(QueryBuilders.termQuery("is_del", "0"));
+         //   boolBuilder.must(QueryBuilders.termQuery("is_del", "0"));
 
             searchSourceBuilder.query(boolBuilder);
             //请求
@@ -83,8 +82,18 @@ public class CompanyNewsSearchController {
                 Map<String, Object> sourceAsMap;
                 for (SearchHit hit : searchHits) {
                     sourceAsMap = hit.getSourceAsMap();
-                    NewsOut newsOut = this.newsToObject(sourceAsMap);
+                    Warning warning = JSON.parseObject(JSON.toJSONString(sourceAsMap), Warning.class);
+                    List<String> companyIdList = new ArrayList<>();
+                    for (RelatedcompanyInfo company : warning.getRelatedcompanyInfo()) {
+                        if (company.getCompanyId() != null){
+                            companyIdList.add(company.getCompanyId().toString());
+                        }
+                    }
+                    List<Warning> recommendNews = this.getRecommendNews(companyIdList,warning.getSid());
+                    warning.setRecommendNews(recommendNews);
+                    data.put("result", warning);
 
+                   /* NewsOut newsOut = this.newsToObject(sourceAsMap);
                     List<Map<String, Object>> recommendNews;
                     //根据关联企业获取相关新闻
                     List<String> companyIdList = new ArrayList<>();
@@ -102,7 +111,7 @@ public class CompanyNewsSearchController {
                         recommendNews = this.getRecommendNews(subjectWordsList);
                     }
                     newsOut.setRecommendNews(recommendNews);
-                    data.put("result", newsOut);
+                    data.put("result", newsOut);*/
                 }
             }
         } catch (IOException e) {
@@ -387,7 +396,7 @@ public class CompanyNewsSearchController {
      * @param newsId
      * @return
      */
-    public List<Map<String,Object>> getRecommendNews(List<String> companyIds,String newsId) {
+    public List<Map<String,Object>> getRecommendNews2(List<String> companyIds,String newsId) {
         List<Map<String, Object>> list = new ArrayList<>();
         try {
             SearchRequest searchRequest = new SearchRequest(Contants.ES_INDEX_NEWS_NAME);
@@ -856,5 +865,36 @@ public class CompanyNewsSearchController {
             }
         }
         return countList;
+    }
+
+    private List<Warning> getRecommendNews(List<String> companyIds,Long newsId) {
+        List<Warning> list = new ArrayList<>();
+        try {
+            SearchRequest searchRequest = new SearchRequest(Contants.ES_INDEX_NEWS_NAME);
+            SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
+            BoolQueryBuilder boolQueryBuilder = QueryBuilders.boolQuery().must(QueryBuilders.nestedQuery("relatedcompanyInfo", QueryBuilders.termsQuery("relatedcompanyInfo.companyId", companyIds), ScoreMode.Avg)).
+                    mustNot(QueryBuilders.termQuery("sid", newsId));
+            searchSourceBuilder.query(boolQueryBuilder);
+            searchSourceBuilder.size(5);
+            //排序
+            searchSourceBuilder.sort(SortBuilders.fieldSort("noticeDate").order(SortOrder.DESC));
+            //请求
+            searchRequest.source(searchSourceBuilder);
+            //调用
+            SearchResponse searchResponse = client.search(searchRequest, RequestOptions.DEFAULT);
+            if (searchResponse.status() == RestStatus.OK) {
+                SearchHits hits = searchResponse.getHits();
+                SearchHit[] searchHits = hits.getHits();
+                Map<String, Object> sourceAsMap;
+                for (SearchHit hit : searchHits) {
+                    sourceAsMap = hit.getSourceAsMap();
+                    Warning warning = JSON.parseObject(JSON.toJSONString(sourceAsMap), Warning.class);
+                    list.add(warning);
+                }
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        return list;
     }
 }
