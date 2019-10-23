@@ -2,6 +2,7 @@ package com.hong.es;
 
 import com.alibaba.fastjson.JSON;
 import com.hong.es.entity.Book;
+import com.hong.es.entity.CommonCountVO;
 import com.hong.es.entity.to.Label;
 import com.hong.es.entity.to.RelatedcompanyInfo;
 import com.hong.es.entity.to.Warning;
@@ -22,7 +23,9 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.junit4.SpringRunner;
 
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.util.*;
+import java.util.stream.Collectors;
 
 import org.apache.lucene.search.join.ScoreMode;
 import org.elasticsearch.action.search.SearchRequest;
@@ -95,30 +98,78 @@ public class EsDemoTests {
 
     @Test
     public void test() throws Exception{
+        Long companyId = 114082L;
+        String beginTime = "2019-07-22";
+        String endTime = "2019-10-22";
+
+        BoolQueryBuilder query = QueryBuilders.boolQuery();
+        query.filter(buildRangeQueryBuilder("noticeDate",beginTime,endTime));
+        query.must(buildNestedQueryBuilder("relatedcompanyInfo","relatedcompanyInfo.companyId",companyId));
+
+       /* BoolQueryBuilder query = QueryBuilders.boolQuery();
+        BoolQueryBuilder boolQuery = QueryBuilders.boolQuery();
+        boolQuery.must(QueryBuilders.termsQuery("relatedcompanyInfo.companyId", companyId));
+        query.filter(QueryBuilders.nestedQuery("relatedcompanyInfo", boolQuery, ScoreMode.Total));*/
+
+        DateHistogramAggregationBuilder dateHis =
+                AggregationBuilders.dateHistogram("dateHis").minDocCount(0).format("yyyy-MM-dd").field("noticeDate")
+                        .dateHistogramInterval(DateHistogramInterval.days(1))
+                        .extendedBounds(new ExtendedBounds(beginTime,endTime))
+                        .subAggregation(AggregationBuilders.nested("dateHistogramHits", "relatedcompanyInfo")
+                                .subAggregation(AggregationBuilders.filter("filterTerm",QueryBuilders.termQuery("relatedcompanyInfo.companyId",companyId))
+                                        .subAggregation(AggregationBuilders.nested("labelsHits","relatedcompanyInfo.labels")
+                                                .subAggregation(AggregationBuilders.terms("dailyHits").field("relatedcompanyInfo.labels.level1Name"))
+                                        )
+                                )
+                        );
+
+
         SearchRequest searchRequest = new SearchRequest(INDEX);
         SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
-        BoolQueryBuilder query = QueryBuilders.boolQuery();
-        BoolQueryBuilder boolQuery = QueryBuilders.boolQuery();
-        List<Long> companyIds = new ArrayList<>();
-        companyIds.add(114082L);
-        boolQuery.must(QueryBuilders.termsQuery("relatedcompanyInfo.companyId", companyIds));
-        query.filter(QueryBuilders.nestedQuery("relatedcompanyInfo", boolQuery, ScoreMode.Total));
-
         searchSourceBuilder.query(query);
+        searchSourceBuilder.size(1);
+        searchSourceBuilder.aggregation(dateHis);
         searchRequest.source(searchSourceBuilder);
-        SearchResponse searchResponse;
-        List<Warning> warnings = new ArrayList<>();
-        searchResponse = EsClient.client().search(searchRequest, RequestOptions.DEFAULT);
+        SearchResponse searchResponse = EsClient.client().search(searchRequest, RequestOptions.DEFAULT);
+        List<CommonCountVO> countVOList = new ArrayList<>();
         if (searchResponse.status() == RestStatus.OK) {
-            SearchHits hits = searchResponse.getHits();
-            SearchHit[] searchHits = hits.getHits();
-            Map<String, Object> sourceAsMap;
-            for (SearchHit hit : searchHits) {
-                sourceAsMap = hit.getSourceAsMap();
-                Warning warning = JSON.parseObject(JSON.toJSONString(sourceAsMap), Warning.class);
-                warnings.add(warning);
+            Aggregations aggregations = searchResponse.getAggregations();
+            Histogram histograms =  aggregations.get("dateHis");
+            List<? extends Histogram.Bucket> histogramsBuckets =  histograms.getBuckets();
+
+            CommonCountVO countVO = null;
+
+            for(Histogram.Bucket bucket:histogramsBuckets){
+                Nested date_histogram_hits_nested =  bucket.getAggregations().get("dateHistogramHits");
+                ParsedFilter filter_term = date_histogram_hits_nested.getAggregations().get("filterTerm");
+                Nested date_label = filter_term.getAggregations().get("labelsHits");
+                ParsedStringTerms daily_hits = date_label.getAggregations().get("dailyHits");
+                List<? extends Terms.Bucket> daily_hits_Buckets =  daily_hits.getBuckets();
+
+                for (Terms.Bucket  daily_hits_Bucket:daily_hits_Buckets) {
+                    countVO = new CommonCountVO();
+                    countVO.setKey(bucket.getKeyAsString());
+                    String type = daily_hits_Bucket.getKey().toString();
+                    countVO.setType(type);
+                    countVO.setValue(BigDecimal.valueOf(daily_hits_Bucket.getDocCount()));
+                    countVOList.add(countVO);
+                }
+
+                List<String> list = daily_hits_Buckets.stream().map(b -> b.getKey().toString()).collect(Collectors.toList());
+                List<String> list2 = labelL1List.stream().filter(l -> !list.contains(l)).collect(Collectors.toList());
+                for (String label:list2){
+                    countVO = new CommonCountVO();
+                    countVO.setKey(bucket.getKeyAsString());
+                    countVO.setType(label);
+                    countVO.setValue(BigDecimal.valueOf(0L));
+                    countVOList.add(countVO);
+                }
             }
         }
+
+        countVOList.forEach(s -> System.out.println(s));
+        System.out.println("=================");
+        System.out.println(countVOList.size());
     }
 
     @Test
