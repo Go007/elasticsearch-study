@@ -1,0 +1,21 @@
+{
+  "companywarnings": {
+    "settings": {
+      "index": {
+        "refresh_interval": "1s",
+        "number_of_shards": "5",
+        "provided_name": "companywarnings",
+        "max_result_window": "2147483647",
+        "creation_date": "1565333425337",
+        "store": {
+          "type": "fs"
+        },
+        "number_of_replicas": "1",
+        "uuid": "pFp9J1QgT3aWOo0FdBrgjQ",
+        "version": {
+          "created": "6050499"
+        }
+      }
+    }
+  }
+}

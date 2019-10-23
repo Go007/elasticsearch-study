@@ -1,0 +1,48 @@
+{
+  "_index": "companywarnings",
+  "_type": "warnings",
+  "_id": "121510141",
+  "_version": 1,
+  "_score": 1,
+  "_source": {
+    "id": 121510141,
+    "sid": 121510141,
+    "basicinfoSid": 17047848,
+    "title": "百度到底研究出了什么人工智能？",
+    "sourceUrl": "http://tieba.baidu.com/p/6010641387",
+    "noticeDate": 1547735820000,
+    "publishSite": "百度贴吧-国际米兰吧",
+    "typeCode": "02",
+    "typeName": "论坛",
+    "warningRegulationSid": null,
+    "dataType": 0,
+    "relatedcompanyInfo": [
+      {
+        "companyId": 146298,
+        "companyName": "北京百度网讯科技有限公司",
+        "importance": 0,
+        "importanceName": "无",
+        "sentimental": 0,
+        "sentimentalName": "中性",
+        "relevance": 0.399765,
+        "relevanceName": "较弱相关",
+        "isBond": 0,
+        "ppType": 0,
+        "shareType": 0,
+        "newOtcMarket": 0,
+        "swIndustryId": null,
+        "swIndustry": null,
+        "csrcIndustryId": null,
+        "csrcIndustry": null,
+        "exposure": null,
+        "exposureId": null,
+        "orgFormId": 3102,
+        "orgFormName": "有限责任公司",
+        "companyTypeId": null,
+        "companyType": null,
+        "title": "百度到底研究出了什么人工智能？",
+        "labels": null
+      }
+    ]
+  }
+}
