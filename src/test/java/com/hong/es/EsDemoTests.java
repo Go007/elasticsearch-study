@@ -106,11 +106,6 @@ public class EsDemoTests {
         query.filter(buildRangeQueryBuilder("noticeDate",beginTime,endTime));
         query.must(buildNestedQueryBuilder("relatedcompanyInfo","relatedcompanyInfo.companyId",companyId));
 
-       /* BoolQueryBuilder query = QueryBuilders.boolQuery();
-        BoolQueryBuilder boolQuery = QueryBuilders.boolQuery();
-        boolQuery.must(QueryBuilders.termsQuery("relatedcompanyInfo.companyId", companyId));
-        query.filter(QueryBuilders.nestedQuery("relatedcompanyInfo", boolQuery, ScoreMode.Total));*/
-
         DateHistogramAggregationBuilder dateHis =
                 AggregationBuilders.dateHistogram("dateHis").minDocCount(0).format("yyyy-MM-dd").field("noticeDate")
                         .dateHistogramInterval(DateHistogramInterval.days(1))
@@ -122,7 +117,6 @@ public class EsDemoTests {
                                         )
                                 )
                         );
-
 
         SearchRequest searchRequest = new SearchRequest(INDEX);
         SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
@@ -169,7 +163,78 @@ public class EsDemoTests {
 
         countVOList.forEach(s -> System.out.println(s));
         System.out.println("=================");
+        Map<String,List<CommonCountVO>> map = countVOList.stream().collect(Collectors.groupingBy(CommonCountVO::getType));
+        List<CommonCountVO> voList = new ArrayList<>(countVOList.size());
+        for (Map.Entry<String,List<CommonCountVO>> vo:map.entrySet()){
+            vo.getValue().sort(Comparator.comparing(CommonCountVO::getKey));
+            voList.addAll(vo.getValue());
+        }
+        voList.forEach(c -> System.out.println(c));
         System.out.println(countVOList.size());
+    }
+
+    @Test
+    public void test00() throws Exception{
+        /**
+         *  以下是通过oracle数据库完成于test()同样功能的操作
+         *  相关表结构见 resources/sql/NEWS_LABEL_JX.sql
+         *    ID    NEWS_BASICINFO_SID   COMPANY_ID  LABEL        IS_DEL       CREATE_DT                                 UPDT_DT
+         * 51000009704	580865	          512900	信用风险			0	18-7月 -18 04.12.16.000000 下午	18-7月 -18 04.12.16.000000 下午
+         * 51000009705	597522	          29709	治理和管理风险			0	18-7月 -18 04.12.16.000000 下午	18-7月 -18 04.12.16.000000 下午
+         * 51000009706	1039948	         309905	经营风险			0	18-7月 -18 04.12.16.000000 下午	18-7月 -18 04.12.16.000000 下午
+         * 51000009707	114098	         350756	财务风险			0	18-7月 -18 04.12.16.000000 下午	18-7月 -18 04.12.16.000000 下午
+         * 51000009708	158916	         450814	治理和管理风险			0	18-7月 -18 04.12.16.000000 下午	18-7月 -18 04.12.16.000000 下午
+         * 51000009709	1510368	         83463	不可抗力风险			0	18-7月 -18 04.12.16.000000 下午	18-7月 -18 04.12.16.000000 下午
+         */
+/*Map<String, Object> paramMap = new HashMap<>();
+        paramMap.put("companyId", companyId);
+        paramMap.put("beginTime", inDto.getBeginTime());
+        paramMap.put("endTime", inDto.getEndTime());
+        List<NewsLabelJX> labelList = oracleDao.findList(COUNT_NEWS_LABEL, paramMap);
+
+        if (CollectionUtils.isNotEmpty(labelList)) {
+            List<NewsLabelJX> labels = labelList.stream().filter(s -> labelL1List.contains(s.getLabel())).collect(Collectors.toList());
+            Map<String, Long> labelMap = labels.stream().collect(Collectors.groupingBy(NewsLabelJX::getLabel,Collectors.counting()));
+            labelMap.put("其他", Long.valueOf(labelList.size() - labels.size()));
+            labelMap.put("totalCount", Long.valueOf(labelList.size()));
+            map.put("countLabel",labelMap);
+
+            Comparator<NewsLabelJX> comparator = new Comparator<NewsLabelJX>() {
+                @Override
+                public int compare(NewsLabelJX o1, NewsLabelJX o2) {
+                    return o1.getUpdateDate().compareTo(o2.getUpdateDate());
+                }
+
+            };
+
+            Map<String,List<NewsLabelJX>> newsLabelJXMap = labels.stream().collect(Collectors.groupingBy(NewsLabelJX::getLabel));
+            for(Map.Entry<String, List<NewsLabelJX>> entry:newsLabelJXMap.entrySet()) {
+                String key = entry.getKey();
+                List<NewsLabelJX> data = entry.getValue();
+                data.sort(comparator);
+                for(NewsLabelJX ss:data) {
+                    ss.setUpdateDateStr(DateUtil.dateToStr(ss.getUpdateDate(), "yyyy-MM-dd"));
+                }
+
+                Map<String,Long> dateMap = data.stream().collect(Collectors.groupingBy(NewsLabelJX::getUpdateDateStr,Collectors.counting()));
+                Date beginDate = DateUtil.strToDate(inDto.getBeginTime(), "yyyy-MM-dd");
+                Date endDate = DateUtil.strToDate(inDto.getEndTime(), "yyyy-MM-dd");
+                while(beginDate.compareTo(endDate) <=0) {
+                    CommonCountVO vo = new CommonCountVO();
+                    vo.setType(key);
+                    String curDate = DateUtil.dateToStr(beginDate, "yyyy-MM-dd");
+                    vo.setKey(curDate);
+                    if(!dateMap.containsKey(curDate)) {
+                        vo.setValue(BigDecimal.valueOf(0));
+                    }else {
+                        vo.setValue(BigDecimal.valueOf(dateMap.get(curDate)));
+                    }
+
+                    voList.add(vo);
+                    beginDate = DateUtil.plus(beginDate);
+                }
+            }
+        }*/
     }
 
     @Test
