@@ -15,6 +15,7 @@ import org.elasticsearch.search.aggregations.bucket.filter.ParsedFilter;
 import org.elasticsearch.search.aggregations.bucket.histogram.*;
 import org.elasticsearch.search.aggregations.bucket.nested.Nested;
 import org.elasticsearch.search.aggregations.bucket.nested.NestedAggregationBuilder;
+import org.elasticsearch.search.aggregations.bucket.nested.ParsedNested;
 import org.elasticsearch.search.aggregations.bucket.terms.*;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -118,11 +119,26 @@ public class EsDemoTests {
                                 )
                         );
 
+        NestedAggregationBuilder nestedStat =
+                AggregationBuilders.nested("nestedStat","relatedcompanyInfo")
+                        .subAggregation(
+                                AggregationBuilders.filter("filterTerm", QueryBuilders.termQuery("relatedcompanyInfo.companyId",companyId))
+                                .subAggregation(
+                                        AggregationBuilders.filter("excludeNullLabels",QueryBuilders.boolQuery().mustNot(QueryBuilders.termQuery("relatedcompanyInfo.labels",null)))
+                                                .subAggregation(
+                                                        AggregationBuilders.nested("allLabels","relatedcompanyInfo.labels")
+                                                                .subAggregation(
+                                                                        AggregationBuilders.terms("countLabel").field("relatedcompanyInfo.labels.level1Name")
+                                                                )
+                                                )
+                                )
+                        );
+
         SearchRequest searchRequest = new SearchRequest(INDEX);
         SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
         searchSourceBuilder.query(query);
         searchSourceBuilder.size(1);
-        searchSourceBuilder.aggregation(dateHis);
+        searchSourceBuilder.aggregation(dateHis).aggregation(nestedStat);
         searchRequest.source(searchSourceBuilder);
         SearchResponse searchResponse = EsClient.client().search(searchRequest, RequestOptions.DEFAULT);
         List<CommonCountVO> countVOList = new ArrayList<>();
@@ -159,6 +175,23 @@ public class EsDemoTests {
                     countVOList.add(countVO);
                 }
             }
+
+            Nested nested =  aggregations.get("nestedStat");
+            ParsedFilter parsedFilter = nested.getAggregations().get("filterTerm");
+            ParsedNested nestedLabel  =  parsedFilter.getAggregations().get("allLabels");
+            ParsedStringTerms label = nestedLabel.getAggregations().get("countLabel");
+            List<? extends Terms.Bucket> sentimentalBuckets =  label.getBuckets();
+            Map<String,Object> labelMap = new HashMap<>();
+            for(Terms.Bucket bucket:sentimentalBuckets){
+                labelMap.put(String.valueOf(bucket.getKey()),bucket.getDocCount());
+            }
+
+            Long labelCount = labelMap.values().stream().mapToLong(s -> (Long)s).sum();
+            Long all = searchResponse.getHits().getTotalHits();
+            labelMap.put("其他",all - labelCount);
+            labelMap.put("all",all);
+
+            System.out.println(labelMap);
         }
 
         countVOList.forEach(s -> System.out.println(s));
