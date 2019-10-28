@@ -100,8 +100,8 @@ public class EsDemoTests {
     @Test
     public void test() throws Exception{
         Long companyId = 114082L;
-        String beginTime = "2019-07-22";
-        String endTime = "2019-10-22";
+        String beginTime = "2019-09-28";
+        String endTime = "2019-10-28";
 
         BoolQueryBuilder query = QueryBuilders.boolQuery();
         query.filter(buildRangeQueryBuilder("noticeDate",beginTime,endTime));
@@ -123,22 +123,44 @@ public class EsDemoTests {
                 AggregationBuilders.nested("nestedStat","relatedcompanyInfo")
                         .subAggregation(
                                 AggregationBuilders.filter("filterTerm", QueryBuilders.termQuery("relatedcompanyInfo.companyId",companyId))
-                                .subAggregation(
-                                        AggregationBuilders.filter("excludeNullLabels",QueryBuilders.boolQuery().mustNot(QueryBuilders.termQuery("relatedcompanyInfo.labels",null)))
-                                                .subAggregation(
-                                                        AggregationBuilders.nested("allLabels","relatedcompanyInfo.labels")
-                                                                .subAggregation(
-                                                                        AggregationBuilders.terms("countLabel").field("relatedcompanyInfo.labels.level1Name")
-                                                                )
+                                        .subAggregation(
+                                                AggregationBuilders.filter(
+                                                        "nestedNegativeLabelStat", QueryBuilders.boolQuery().must(QueryBuilders.termQuery("relatedcompanyInfo.companyId",companyId)).must(QueryBuilders.rangeQuery("relatedcompanyInfo.sentimental").lt(0))
                                                 )
+                                                        .subAggregation(
+                                                                AggregationBuilders.nested("allLabels","relatedcompanyInfo.labels")
+                                                                        .subAggregation(
+                                                                                AggregationBuilders.terms("countLabel").field("relatedcompanyInfo.labels.level1Name")
+                                                                        )
+                                                        )
+                                        )
+                        );
+
+        NestedAggregationBuilder nested_stat =
+                AggregationBuilders.nested("nested_stat","relatedcompanyInfo")
+                        .subAggregation(
+                                AggregationBuilders.filter("filter_term", QueryBuilders.termQuery("relatedcompanyInfo.companyId",companyId))
+                                        .subAggregation(
+                                                AggregationBuilders.terms("count_sentimental").field("relatedcompanyInfo.sentimental")
+                                        )
+                        )
+                        .subAggregation(
+                                AggregationBuilders.filter(
+                                        "nested_negative_label_stat", QueryBuilders.boolQuery().must(QueryBuilders.termQuery("relatedcompanyInfo.companyId",companyId)).must(QueryBuilders.rangeQuery("relatedcompanyInfo.sentimental").lt(0))
                                 )
+                                 .subAggregation(
+                                         AggregationBuilders.nested("nested_label_stat","relatedcompanyInfo.labels")
+                                                 .subAggregation(
+                                                         AggregationBuilders.terms("count_l1").field("relatedcompanyInfo.labels.level1Name")
+                                                 )
+                                 )
                         );
 
         SearchRequest searchRequest = new SearchRequest(INDEX);
         SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
         searchSourceBuilder.query(query);
         searchSourceBuilder.size(1);
-        searchSourceBuilder.aggregation(dateHis).aggregation(nestedStat);
+        searchSourceBuilder.aggregation(dateHis).aggregation(nestedStat).aggregation(nested_stat);
         searchRequest.source(searchSourceBuilder);
         SearchResponse searchResponse = EsClient.client().search(searchRequest, RequestOptions.DEFAULT);
         List<CommonCountVO> countVOList = new ArrayList<>();
@@ -177,7 +199,8 @@ public class EsDemoTests {
             }
 
             Nested nested =  aggregations.get("nestedStat");
-            ParsedFilter parsedFilter = nested.getAggregations().get("filterTerm");
+            ParsedFilter parsedFilter0 =nested.getAggregations().get("filterTerm");
+            ParsedFilter parsedFilter = parsedFilter0.getAggregations().get("nestedNegativeLabelStat");
             ParsedNested nestedLabel  =  parsedFilter.getAggregations().get("allLabels");
             ParsedStringTerms label = nestedLabel.getAggregations().get("countLabel");
             List<? extends Terms.Bucket> sentimentalBuckets =  label.getBuckets();
@@ -192,8 +215,31 @@ public class EsDemoTests {
             labelMap.put("all",all);
 
             System.out.println(labelMap);
+
+            Nested nested2 =  aggregations.get("nested_stat");
+            ParsedStringTerms count_l1  = ((ParsedNested)((ParsedFilter)(nested2.getAggregations().get("nested_negative_label_stat")))
+                    .getAggregations().get("nested_label_stat")).getAggregations().get("count_l1");
+            List<? extends Terms.Bucket> count_l1Buckets =  count_l1.getBuckets();
+            Map<String,Object> labelMap2 = new HashMap<>();
+            for(Terms.Bucket bucket:count_l1Buckets){
+                labelMap2.put(String.valueOf(bucket.getKey()),bucket.getDocCount());
+            }
+
+            System.out.println("++===++=========");
+            System.out.println(labelMap2);
+            System.out.println("==================");
+
+            ParsedLongTerms sentimental  = ((ParsedFilter)(nested2.getAggregations().get("filter_term"))).getAggregations().get("count_sentimental");
+            List<? extends Terms.Bucket> sentimentalBuckets2 =  sentimental.getBuckets();
+            Map<String,Object> sentimentalMap = new HashMap<>();
+            for(Terms.Bucket bucket:sentimentalBuckets2){
+                sentimentalMap.put(String.valueOf(bucket.getKey()),bucket.getDocCount());
+            }
+            sentimentalMap.put("all",(int) searchResponse.getHits().getTotalHits());
+            System.out.println(sentimentalMap);
         }
 
+        System.out.println("=========================");
         countVOList.forEach(s -> System.out.println(s));
         System.out.println("=================");
         Map<String,List<CommonCountVO>> map = countVOList.stream().collect(Collectors.groupingBy(CommonCountVO::getType));
