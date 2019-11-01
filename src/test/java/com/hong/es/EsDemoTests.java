@@ -3,13 +3,19 @@ package com.hong.es;
 import com.alibaba.fastjson.JSON;
 import com.hong.es.entity.Book;
 import com.hong.es.entity.CommonCountVO;
+import com.hong.es.entity.EsEntity;
 import com.hong.es.entity.to.Label;
 import com.hong.es.entity.to.RelatedcompanyInfo;
 import com.hong.es.entity.to.Warning;
 import com.hong.es.service.BookService;
 import com.hong.es.util.DateUtils;
 import com.hong.es.util.EsClient;
+import org.apache.commons.lang3.StringUtils;
+import org.elasticsearch.action.bulk.BulkRequest;
+import org.elasticsearch.action.index.IndexRequest;
 import org.elasticsearch.action.search.SearchRequest;
+import org.elasticsearch.client.RestHighLevelClient;
+import org.elasticsearch.common.xcontent.XContentType;
 import org.elasticsearch.index.query.*;
 import org.elasticsearch.search.aggregations.bucket.filter.ParsedFilter;
 import org.elasticsearch.search.aggregations.bucket.histogram.*;
@@ -23,7 +29,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.junit4.SpringRunner;
 
-import java.io.IOException;
+import java.io.*;
 import java.math.BigDecimal;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -44,6 +50,8 @@ import org.elasticsearch.search.sort.SortBuilders;
 import org.elasticsearch.search.sort.SortOrder;
 import org.joda.time.DateTimeZone;
 import org.springframework.util.CollectionUtils;
+
+import static com.hong.es.util.EsClient.client;
 
 /**
  * @author wanghong
@@ -162,7 +170,7 @@ public class EsDemoTests {
         searchSourceBuilder.size(1);
         searchSourceBuilder.aggregation(dateHis).aggregation(nestedStat).aggregation(nested_stat);
         searchRequest.source(searchSourceBuilder);
-        SearchResponse searchResponse = EsClient.client().search(searchRequest, RequestOptions.DEFAULT);
+        SearchResponse searchResponse = client().search(searchRequest, RequestOptions.DEFAULT);
         List<CommonCountVO> countVOList = new ArrayList<>();
         if (searchResponse.status() == RestStatus.OK) {
             Aggregations aggregations = searchResponse.getAggregations();
@@ -342,7 +350,7 @@ public class EsDemoTests {
         searchRequest.source(searchSourceBuilder);
 
         List<Warning> warnings = new ArrayList<>();
-        SearchResponse searchResponse = EsClient.client().search(searchRequest, RequestOptions.DEFAULT);
+        SearchResponse searchResponse = client().search(searchRequest, RequestOptions.DEFAULT);
         if (searchResponse.status() == RestStatus.OK) {
             SearchHits hits = searchResponse.getHits();
             SearchHit[] searchHits = hits.getHits();
@@ -431,7 +439,7 @@ public class EsDemoTests {
         SearchResponse searchResponse = null;
 
         try {
-            searchResponse = EsClient.client().search(searchRequest, RequestOptions.DEFAULT);
+            searchResponse = client().search(searchRequest, RequestOptions.DEFAULT);
             if(searchResponse.status()==RestStatus.OK){
                 Map<String,Object> map = new HashMap<>();
                 Aggregations aggregations = searchResponse.getAggregations();
@@ -501,4 +509,76 @@ public class EsDemoTests {
         NestedQueryBuilder nestedQueryBuilder = QueryBuilders.nestedQuery(path,QueryBuilders.termQuery(queryTerm,termValue),ScoreMode.None);
         return nestedQueryBuilder;
     }
+
+    /**
+     * Elasticsearch 数据以json格式导出到本地磁盘文件
+     * 数据量如果过大,则分页导出
+     */
+    @Test
+    public void exportEsData(){
+        String filePath = "D:\\es\\";
+        SearchRequest searchRequest = new SearchRequest(INDEX);
+        SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
+        int pageSize = 10000;
+        long begin = System.currentTimeMillis();
+        for (int i = 1;i<= 10;i++){
+            searchSourceBuilder.from(pageSize*(i-1));
+            searchSourceBuilder.size(pageSize);
+            searchRequest.source(searchSourceBuilder);
+            BufferedWriter bw = null;
+            try {
+                SearchResponse searchResponse = client().search(searchRequest, RequestOptions.DEFAULT);
+                String indexPath = filePath + "es" + i + ".json";
+                bw = new BufferedWriter(new FileWriter(indexPath,true));
+                if (searchResponse.status() == RestStatus.OK) {
+                    SearchHits hits = searchResponse.getHits();
+                    // long total = hits.getTotalHits(); 查看总记录条数
+                    SearchHit[] searchHits = hits.getHits();
+                    for (SearchHit hit : searchHits) {
+                        String json = hit.getSourceAsString();
+                        if (StringUtils.isNotEmpty(json)){
+                            bw.write(json);
+                            bw.write("\r\n");
+                        }
+                    }
+                }
+            } catch (IOException e) {
+                e.printStackTrace();
+                if (bw != null){
+                    try {
+                        bw.close();
+                    } catch (IOException e1) {
+                        e1.printStackTrace();
+                    }
+                }
+            }
+        }
+        System.out.println("耗时:" + (System.currentTimeMillis() - begin) + "ms");
+    }
+
+    /**
+     * json格式的数据导入到Elasticsearch
+     *  分页导入
+     */
+    @Test
+    public void importData(){
+        RestHighLevelClient client = EsClient.client();
+        String filePath = "D:\\es\\";
+        BufferedReader br = null;
+        BulkRequest request = null;
+        String json = null;
+        for (int i = 1;i<= 10;i++){
+            try {
+                br = new BufferedReader(new FileReader(filePath + "es" + i + ".json"));
+                request = new BulkRequest();
+                while ((json = br.readLine()) != null){
+                    request.add(new IndexRequest(INDEX).source(json, XContentType.JSON));
+                }
+                client.bulk(request, RequestOptions.DEFAULT);
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
 }

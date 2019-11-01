@@ -265,4 +265,34 @@ public class RelatedcompanyInfo {
     public void setLabels(List<Label> labels) {
         this.labels = labels;
     }
+
+    @Override
+    public String toString() {
+        return "RelatedcompanyInfo{" +
+                "companyId=" + companyId +
+                ", companyName='" + companyName + '\'' +
+                ", importance=" + importance +
+                ", importanceName='" + importanceName + '\'' +
+                ", sentimental=" + sentimental +
+                ", sentimentalName='" + sentimentalName + '\'' +
+                ", relevance=" + relevance +
+                ", relevanceName='" + relevanceName + '\'' +
+                ", isBond=" + isBond +
+                ", ppType=" + ppType +
+                ", shareType=" + shareType +
+                ", newOtcMarket=" + newOtcMarket +
+                ", swIndustryId=" + swIndustryId +
+                ", swIndustry='" + swIndustry + '\'' +
+                ", csrcIndustryId=" + csrcIndustryId +
+                ", csrcIndustry='" + csrcIndustry + '\'' +
+                ", exposure='" + exposure + '\'' +
+                ", exposureId=" + exposureId +
+                ", orgFormId=" + orgFormId +
+                ", orgFormName='" + orgFormName + '\'' +
+                ", companyTypeId=" + companyTypeId +
+                ", companyType='" + companyType + '\'' +
+                ", title='" + title + '\'' +
+                ", labels=" + labels +
+                '}';
+    }
 }

@@ -145,4 +145,23 @@ public class Warning {
     public void setRecommendNews(List<Warning> recommendNews) {
         this.recommendNews = recommendNews;
     }
+
+    @Override
+    public String toString() {
+        return "Warning{" +
+                "id=" + id +
+                ", sid=" + sid +
+                ", basicinfoSid=" + basicinfoSid +
+                ", title='" + title + '\'' +
+                ", sourceUrl='" + sourceUrl + '\'' +
+                ", noticeDate=" + noticeDate +
+                ", publishSite='" + publishSite + '\'' +
+                ", typeCode='" + typeCode + '\'' +
+                ", typeName='" + typeName + '\'' +
+                ", warningRegulationSid=" + warningRegulationSid +
+                ", dataType=" + dataType +
+                ", relatedcompanyInfo=" + relatedcompanyInfo +
+                ", recommendNews=" + recommendNews +
+                '}';
+    }
 }
