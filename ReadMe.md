@@ -8,3 +8,6 @@ https://juejin.im/post/5d5a9583e51d456206115a06
 JestClient RestHighLevelClient TransportClient 
 使用jest可以不受es集群版本的影响，不需要每次es升级，修改源代码
 https://www.elastic.co/guide/en/elasticsearch/client/java-rest/6.5/java-rest-high.html
+
+#elasticsearch-head 5连接elasticsearch 6.x无法显示数据的解决办法
+https://blog.csdn.net/qq_31142553/article/details/99689758
