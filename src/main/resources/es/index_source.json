@@ -1,0 +1,191 @@
+{
+  "settings": {
+    "index": {
+      "number_of_shards": "5",
+      "number_of_replicas": "1"
+    }
+  },
+  "mappings": {
+    "warnings": {
+      "properties": {
+        "basicinfoSid": {
+          "type": "long",
+          "store": true
+        },
+        "dataType": {
+          "type": "long",
+          "store": true
+        },
+        "id": {
+          "type": "keyword"
+        },
+        "noticeDate": {
+          "type": "date",
+          "store": true
+        },
+        "publishSite": {
+          "type": "keyword",
+          "store": true
+        },
+        "relatedcompanyInfo": {
+          "type": "nested",
+          "properties": {
+            "companyId": {
+              "type": "long",
+              "store": true
+            },
+            "companyName": {
+              "type": "keyword",
+              "store": true
+            },
+            "companyType": {
+              "type": "keyword",
+              "store": true
+            },
+            "companyTypeId": {
+              "type": "long",
+              "store": true
+            },
+            "csrcIndustry": {
+              "type": "keyword",
+              "store": true
+            },
+            "csrcIndustryId": {
+              "type": "long",
+              "store": true
+            },
+            "exposure": {
+              "type": "keyword",
+              "store": true
+            },
+            "exposureId": {
+              "type": "long",
+              "store": true
+            },
+            "importance": {
+              "type": "long",
+              "store": true
+            },
+            "importanceName": {
+              "type": "keyword",
+              "store": true
+            },
+            "isBond": {
+              "type": "long",
+              "store": true
+            },
+            "labels": {
+              "type": "nested",
+              "properties": {
+                "fullLabel": {
+                  "type": "keyword",
+                  "store": true
+                },
+                "label": {
+                  "type": "keyword",
+                  "store": true
+                },
+                "level1": {
+                  "type": "keyword",
+                  "store": true
+                },
+                "level1Name": {
+                  "type": "keyword",
+                  "store": true
+                },
+                "level2": {
+                  "type": "keyword",
+                  "store": true
+                },
+                "level2Name": {
+                  "type": "keyword",
+                  "store": true
+                },
+                "level3": {
+                  "type": "keyword",
+                  "store": true
+                },
+                "level3Name": {
+                  "type": "keyword",
+                  "store": true
+                }
+              }
+            },
+            "newOtcMarket": {
+              "type": "long",
+              "store": true
+            },
+            "orgFormId": {
+              "type": "long",
+              "store": true
+            },
+            "orgFormName": {
+              "type": "keyword",
+              "store": true
+            },
+            "ppType": {
+              "type": "long",
+              "store": true
+            },
+            "relevance": {
+              "type": "double",
+              "store": true
+            },
+            "relevanceName": {
+              "type": "keyword",
+              "store": true
+            },
+            "sentimental": {
+              "type": "long",
+              "store": true
+            },
+            "sentimentalName": {
+              "type": "keyword",
+              "store": true
+            },
+            "shareType": {
+              "type": "long",
+              "store": true
+            },
+            "swIndustry": {
+              "type": "keyword",
+              "store": true
+            },
+            "swIndustryId": {
+              "type": "long",
+              "store": true
+            },
+            "title": {
+              "type": "keyword",
+              "store": true
+            }
+          }
+        },
+        "sid": {
+          "type": "long",
+          "store": true
+        },
+        "sourceUrl": {
+          "type": "keyword",
+          "store": true
+        },
+        "title": {
+          "type": "keyword",
+          "store": true
+        },
+        "typeCode": {
+          "type": "keyword",
+          "store": true
+        },
+        "typeName": {
+          "type": "keyword",
+          "store": true
+        },
+        "warningRegulationSid": {
+          "type": "long",
+          "store": true
+        }
+      }
+    }
+  }
+}

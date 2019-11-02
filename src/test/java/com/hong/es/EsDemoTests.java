@@ -1,9 +1,7 @@
 package com.hong.es;
 
 import com.alibaba.fastjson.JSON;
-import com.hong.es.entity.Book;
 import com.hong.es.entity.CommonCountVO;
-import com.hong.es.entity.EsEntity;
 import com.hong.es.entity.to.Label;
 import com.hong.es.entity.to.RelatedcompanyInfo;
 import com.hong.es.entity.to.Warning;
@@ -11,45 +9,44 @@ import com.hong.es.service.BookService;
 import com.hong.es.util.DateUtils;
 import com.hong.es.util.EsClient;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.lucene.search.join.ScoreMode;
 import org.elasticsearch.action.bulk.BulkRequest;
 import org.elasticsearch.action.index.IndexRequest;
 import org.elasticsearch.action.search.SearchRequest;
+import org.elasticsearch.action.search.SearchResponse;
+import org.elasticsearch.client.RequestOptions;
 import org.elasticsearch.client.RestHighLevelClient;
 import org.elasticsearch.common.xcontent.XContentType;
 import org.elasticsearch.index.query.*;
+import org.elasticsearch.rest.RestStatus;
+import org.elasticsearch.search.SearchHit;
+import org.elasticsearch.search.SearchHits;
+import org.elasticsearch.search.aggregations.AggregationBuilders;
+import org.elasticsearch.search.aggregations.Aggregations;
 import org.elasticsearch.search.aggregations.bucket.filter.ParsedFilter;
-import org.elasticsearch.search.aggregations.bucket.histogram.*;
+import org.elasticsearch.search.aggregations.bucket.histogram.DateHistogramAggregationBuilder;
+import org.elasticsearch.search.aggregations.bucket.histogram.DateHistogramInterval;
+import org.elasticsearch.search.aggregations.bucket.histogram.ExtendedBounds;
+import org.elasticsearch.search.aggregations.bucket.histogram.Histogram;
 import org.elasticsearch.search.aggregations.bucket.nested.Nested;
 import org.elasticsearch.search.aggregations.bucket.nested.NestedAggregationBuilder;
 import org.elasticsearch.search.aggregations.bucket.nested.ParsedNested;
-import org.elasticsearch.search.aggregations.bucket.terms.*;
+import org.elasticsearch.search.aggregations.bucket.terms.ParsedLongTerms;
+import org.elasticsearch.search.aggregations.bucket.terms.ParsedStringTerms;
+import org.elasticsearch.search.aggregations.bucket.terms.Terms;
+import org.elasticsearch.search.aggregations.bucket.terms.TermsAggregationBuilder;
+import org.elasticsearch.search.builder.SearchSourceBuilder;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.junit4.SpringRunner;
+import org.springframework.util.CollectionUtils;
 
 import java.io.*;
 import java.math.BigDecimal;
 import java.util.*;
 import java.util.stream.Collectors;
-
-import org.apache.lucene.search.join.ScoreMode;
-import org.elasticsearch.action.search.SearchRequest;
-import org.elasticsearch.action.search.SearchResponse;
-import org.elasticsearch.client.RequestOptions;
-import org.elasticsearch.rest.RestStatus;
-import org.elasticsearch.search.SearchHit;
-import org.elasticsearch.search.SearchHits;
-import org.elasticsearch.search.aggregations.Aggregation;
-import org.elasticsearch.search.aggregations.AggregationBuilders;
-import org.elasticsearch.search.aggregations.Aggregations;
-import org.elasticsearch.search.aggregations.bucket.terms.Terms.Bucket;
-import org.elasticsearch.search.builder.SearchSourceBuilder;
-import org.elasticsearch.search.sort.SortBuilders;
-import org.elasticsearch.search.sort.SortOrder;
-import org.joda.time.DateTimeZone;
-import org.springframework.util.CollectionUtils;
 
 import static com.hong.es.util.EsClient.client;
 
@@ -102,41 +99,42 @@ public class EsDemoTests {
     }
 */
 
-    private static final List<String> labelL1List = new ArrayList<>(Arrays.asList("经营风险","治理和管理风险","财务风险","证券市场风险","信用风险","不可抗力风险"));
+    private static final List<String> labelL1List = new ArrayList<>(Arrays.asList("经营风险", "治理和管理风险", "财务风险", "证券市场风险", "信用风险", "不可抗力风险"));
     private static final String INDEX = "companywarnings";
+    private static final String TYPE = "warnings";
 
     @Test
-    public void test() throws Exception{
+    public void test() throws Exception {
         Long companyId = 114082L;
         String beginTime = "2019-09-28";
         String endTime = "2019-10-28";
 
         BoolQueryBuilder query = QueryBuilders.boolQuery();
-        query.filter(buildRangeQueryBuilder("noticeDate",beginTime,endTime));
-        query.must(buildNestedQueryBuilder("relatedcompanyInfo","relatedcompanyInfo.companyId",companyId));
+        query.filter(buildRangeQueryBuilder("noticeDate", beginTime, endTime));
+        query.must(buildNestedQueryBuilder("relatedcompanyInfo", "relatedcompanyInfo.companyId", companyId));
 
         DateHistogramAggregationBuilder dateHis =
                 AggregationBuilders.dateHistogram("dateHis").minDocCount(0).format("yyyy-MM-dd").field("noticeDate")
                         .dateHistogramInterval(DateHistogramInterval.days(1))
-                        .extendedBounds(new ExtendedBounds(beginTime,endTime))
+                        .extendedBounds(new ExtendedBounds(beginTime, endTime))
                         .subAggregation(AggregationBuilders.nested("dateHistogramHits", "relatedcompanyInfo")
-                                .subAggregation(AggregationBuilders.filter("filterTerm",QueryBuilders.termQuery("relatedcompanyInfo.companyId",companyId))
-                                        .subAggregation(AggregationBuilders.nested("labelsHits","relatedcompanyInfo.labels")
+                                .subAggregation(AggregationBuilders.filter("filterTerm", QueryBuilders.termQuery("relatedcompanyInfo.companyId", companyId))
+                                        .subAggregation(AggregationBuilders.nested("labelsHits", "relatedcompanyInfo.labels")
                                                 .subAggregation(AggregationBuilders.terms("dailyHits").field("relatedcompanyInfo.labels.level1Name"))
                                         )
                                 )
                         );
 
         NestedAggregationBuilder nestedStat =
-                AggregationBuilders.nested("nestedStat","relatedcompanyInfo")
+                AggregationBuilders.nested("nestedStat", "relatedcompanyInfo")
                         .subAggregation(
-                                AggregationBuilders.filter("filterTerm", QueryBuilders.termQuery("relatedcompanyInfo.companyId",companyId))
+                                AggregationBuilders.filter("filterTerm", QueryBuilders.termQuery("relatedcompanyInfo.companyId", companyId))
                                         .subAggregation(
                                                 AggregationBuilders.filter(
-                                                        "nestedNegativeLabelStat", QueryBuilders.boolQuery().must(QueryBuilders.termQuery("relatedcompanyInfo.companyId",companyId)).must(QueryBuilders.rangeQuery("relatedcompanyInfo.sentimental").lt(0))
+                                                        "nestedNegativeLabelStat", QueryBuilders.boolQuery().must(QueryBuilders.termQuery("relatedcompanyInfo.companyId", companyId)).must(QueryBuilders.rangeQuery("relatedcompanyInfo.sentimental").lt(0))
                                                 )
                                                         .subAggregation(
-                                                                AggregationBuilders.nested("allLabels","relatedcompanyInfo.labels")
+                                                                AggregationBuilders.nested("allLabels", "relatedcompanyInfo.labels")
                                                                         .subAggregation(
                                                                                 AggregationBuilders.terms("countLabel").field("relatedcompanyInfo.labels.level1Name")
                                                                         )
@@ -145,23 +143,23 @@ public class EsDemoTests {
                         );
 
         NestedAggregationBuilder nested_stat =
-                AggregationBuilders.nested("nested_stat","relatedcompanyInfo")
+                AggregationBuilders.nested("nested_stat", "relatedcompanyInfo")
                         .subAggregation(
-                                AggregationBuilders.filter("filter_term", QueryBuilders.termQuery("relatedcompanyInfo.companyId",companyId))
+                                AggregationBuilders.filter("filter_term", QueryBuilders.termQuery("relatedcompanyInfo.companyId", companyId))
                                         .subAggregation(
                                                 AggregationBuilders.terms("count_sentimental").field("relatedcompanyInfo.sentimental")
                                         )
                         )
                         .subAggregation(
                                 AggregationBuilders.filter(
-                                        "nested_negative_label_stat", QueryBuilders.boolQuery().must(QueryBuilders.termQuery("relatedcompanyInfo.companyId",companyId)).must(QueryBuilders.rangeQuery("relatedcompanyInfo.sentimental").lt(0))
+                                        "nested_negative_label_stat", QueryBuilders.boolQuery().must(QueryBuilders.termQuery("relatedcompanyInfo.companyId", companyId)).must(QueryBuilders.rangeQuery("relatedcompanyInfo.sentimental").lt(0))
                                 )
-                                 .subAggregation(
-                                         AggregationBuilders.nested("nested_label_stat","relatedcompanyInfo.labels")
-                                                 .subAggregation(
-                                                         AggregationBuilders.terms("count_l1").field("relatedcompanyInfo.labels.level1Name")
-                                                 )
-                                 )
+                                        .subAggregation(
+                                                AggregationBuilders.nested("nested_label_stat", "relatedcompanyInfo.labels")
+                                                        .subAggregation(
+                                                                AggregationBuilders.terms("count_l1").field("relatedcompanyInfo.labels.level1Name")
+                                                        )
+                                        )
                         );
 
         SearchRequest searchRequest = new SearchRequest(INDEX);
@@ -174,19 +172,19 @@ public class EsDemoTests {
         List<CommonCountVO> countVOList = new ArrayList<>();
         if (searchResponse.status() == RestStatus.OK) {
             Aggregations aggregations = searchResponse.getAggregations();
-            Histogram histograms =  aggregations.get("dateHis");
-            List<? extends Histogram.Bucket> histogramsBuckets =  histograms.getBuckets();
+            Histogram histograms = aggregations.get("dateHis");
+            List<? extends Histogram.Bucket> histogramsBuckets = histograms.getBuckets();
 
             CommonCountVO countVO = null;
 
-            for(Histogram.Bucket bucket:histogramsBuckets){
-                Nested date_histogram_hits_nested =  bucket.getAggregations().get("dateHistogramHits");
+            for (Histogram.Bucket bucket : histogramsBuckets) {
+                Nested date_histogram_hits_nested = bucket.getAggregations().get("dateHistogramHits");
                 ParsedFilter filter_term = date_histogram_hits_nested.getAggregations().get("filterTerm");
                 Nested date_label = filter_term.getAggregations().get("labelsHits");
                 ParsedStringTerms daily_hits = date_label.getAggregations().get("dailyHits");
-                List<? extends Terms.Bucket> daily_hits_Buckets =  daily_hits.getBuckets();
+                List<? extends Terms.Bucket> daily_hits_Buckets = daily_hits.getBuckets();
 
-                for (Terms.Bucket  daily_hits_Bucket:daily_hits_Buckets) {
+                for (Terms.Bucket daily_hits_Bucket : daily_hits_Buckets) {
                     countVO = new CommonCountVO();
                     countVO.setKey(bucket.getKeyAsString());
                     String type = daily_hits_Bucket.getKey().toString();
@@ -197,7 +195,7 @@ public class EsDemoTests {
 
                 List<String> list = daily_hits_Buckets.stream().map(b -> b.getKey().toString()).collect(Collectors.toList());
                 List<String> list2 = labelL1List.stream().filter(l -> !list.contains(l)).collect(Collectors.toList());
-                for (String label:list2){
+                for (String label : list2) {
                     countVO = new CommonCountVO();
                     countVO.setKey(bucket.getKeyAsString());
                     countVO.setType(label);
@@ -206,53 +204,53 @@ public class EsDemoTests {
                 }
             }
 
-            Nested nested =  aggregations.get("nestedStat");
-            ParsedFilter parsedFilter0 =nested.getAggregations().get("filterTerm");
+            Nested nested = aggregations.get("nestedStat");
+            ParsedFilter parsedFilter0 = nested.getAggregations().get("filterTerm");
             ParsedFilter parsedFilter = parsedFilter0.getAggregations().get("nestedNegativeLabelStat");
-            ParsedNested nestedLabel  =  parsedFilter.getAggregations().get("allLabels");
+            ParsedNested nestedLabel = parsedFilter.getAggregations().get("allLabels");
             ParsedStringTerms label = nestedLabel.getAggregations().get("countLabel");
-            List<? extends Terms.Bucket> sentimentalBuckets =  label.getBuckets();
-            Map<String,Object> labelMap = new HashMap<>();
-            for(Terms.Bucket bucket:sentimentalBuckets){
-                labelMap.put(String.valueOf(bucket.getKey()),bucket.getDocCount());
+            List<? extends Terms.Bucket> sentimentalBuckets = label.getBuckets();
+            Map<String, Object> labelMap = new HashMap<>();
+            for (Terms.Bucket bucket : sentimentalBuckets) {
+                labelMap.put(String.valueOf(bucket.getKey()), bucket.getDocCount());
             }
 
-            Long labelCount = labelMap.values().stream().mapToLong(s -> (Long)s).sum();
+            Long labelCount = labelMap.values().stream().mapToLong(s -> (Long) s).sum();
             Long all = searchResponse.getHits().getTotalHits();
-            labelMap.put("其他",all - labelCount);
-            labelMap.put("all",all);
+            labelMap.put("其他", all - labelCount);
+            labelMap.put("all", all);
 
             System.out.println(labelMap);
 
-            Nested nested2 =  aggregations.get("nested_stat");
-            ParsedStringTerms count_l1  = ((ParsedNested)((ParsedFilter)(nested2.getAggregations().get("nested_negative_label_stat")))
+            Nested nested2 = aggregations.get("nested_stat");
+            ParsedStringTerms count_l1 = ((ParsedNested) ((ParsedFilter) (nested2.getAggregations().get("nested_negative_label_stat")))
                     .getAggregations().get("nested_label_stat")).getAggregations().get("count_l1");
-            List<? extends Terms.Bucket> count_l1Buckets =  count_l1.getBuckets();
-            Map<String,Object> labelMap2 = new HashMap<>();
-            for(Terms.Bucket bucket:count_l1Buckets){
-                labelMap2.put(String.valueOf(bucket.getKey()),bucket.getDocCount());
+            List<? extends Terms.Bucket> count_l1Buckets = count_l1.getBuckets();
+            Map<String, Object> labelMap2 = new HashMap<>();
+            for (Terms.Bucket bucket : count_l1Buckets) {
+                labelMap2.put(String.valueOf(bucket.getKey()), bucket.getDocCount());
             }
 
             System.out.println("++===++=========");
             System.out.println(labelMap2);
             System.out.println("==================");
 
-            ParsedLongTerms sentimental  = ((ParsedFilter)(nested2.getAggregations().get("filter_term"))).getAggregations().get("count_sentimental");
-            List<? extends Terms.Bucket> sentimentalBuckets2 =  sentimental.getBuckets();
-            Map<String,Object> sentimentalMap = new HashMap<>();
-            for(Terms.Bucket bucket:sentimentalBuckets2){
-                sentimentalMap.put(String.valueOf(bucket.getKey()),bucket.getDocCount());
+            ParsedLongTerms sentimental = ((ParsedFilter) (nested2.getAggregations().get("filter_term"))).getAggregations().get("count_sentimental");
+            List<? extends Terms.Bucket> sentimentalBuckets2 = sentimental.getBuckets();
+            Map<String, Object> sentimentalMap = new HashMap<>();
+            for (Terms.Bucket bucket : sentimentalBuckets2) {
+                sentimentalMap.put(String.valueOf(bucket.getKey()), bucket.getDocCount());
             }
-            sentimentalMap.put("all",(int) searchResponse.getHits().getTotalHits());
+            sentimentalMap.put("all", (int) searchResponse.getHits().getTotalHits());
             System.out.println(sentimentalMap);
         }
 
         System.out.println("=========================");
         countVOList.forEach(s -> System.out.println(s));
         System.out.println("=================");
-        Map<String,List<CommonCountVO>> map = countVOList.stream().collect(Collectors.groupingBy(CommonCountVO::getType));
+        Map<String, List<CommonCountVO>> map = countVOList.stream().collect(Collectors.groupingBy(CommonCountVO::getType));
         List<CommonCountVO> voList = new ArrayList<>(countVOList.size());
-        for (Map.Entry<String,List<CommonCountVO>> vo:map.entrySet()){
+        for (Map.Entry<String, List<CommonCountVO>> vo : map.entrySet()) {
             vo.getValue().sort(Comparator.comparing(CommonCountVO::getKey));
             voList.addAll(vo.getValue());
         }
@@ -261,7 +259,7 @@ public class EsDemoTests {
     }
 
     @Test
-    public void test00() throws Exception{
+    public void test00() throws Exception {
         /**
          *  以下是通过oracle数据库完成于test()同样功能的操作
          *  相关表结构见 resources/sql/NEWS_LABEL_JX.sql
@@ -325,7 +323,7 @@ public class EsDemoTests {
     }
 
     @Test
-    public void test2() throws Exception{
+    public void test2() throws Exception {
         BoolQueryBuilder companyWarningQuery = QueryBuilders.boolQuery();
         List<Long> companyIds = new ArrayList<>();
         Long companyId = 114082L;
@@ -341,12 +339,12 @@ public class EsDemoTests {
         q1.must(QueryBuilders.termsQuery("relatedcompanyInfo.companyId", companyIds));
 
         companyWarningQuery.filter(QueryBuilders.nestedQuery("relatedcompanyInfo", q1, ScoreMode.Total));
-        companyWarningQuery.filter(buildRangeQueryBuilder("noticeDate",beginTime,endTime));
+        companyWarningQuery.filter(buildRangeQueryBuilder("noticeDate", beginTime, endTime));
 
         SearchRequest searchRequest = new SearchRequest(INDEX);
         SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
         searchSourceBuilder.query(companyWarningQuery);
-       // searchSourceBuilder.size(30);
+        // searchSourceBuilder.size(30);
         searchRequest.source(searchSourceBuilder);
 
         List<Warning> warnings = new ArrayList<>();
@@ -360,16 +358,16 @@ public class EsDemoTests {
                 Warning warning = JSON.parseObject(JSON.toJSONString(sourceAsMap), Warning.class);
                 System.out.println(warning.getId());
                 List<RelatedcompanyInfo> list = warning.getRelatedcompanyInfo();
-                if (!CollectionUtils.isEmpty(list)){
-                    for (RelatedcompanyInfo c:list){
-                        if (c.getCompanyId() == companyId){
+                if (!CollectionUtils.isEmpty(list)) {
+                    for (RelatedcompanyInfo c : list) {
+                        if (c.getCompanyId() == companyId) {
                             List<Label> labels = c.getLabels();
-                            if (CollectionUtils.isEmpty(labels)){
+                            if (CollectionUtils.isEmpty(labels)) {
                                 System.out.println("=============FALSE=============");
                                 return;
                             }
-                            for (Label l:labels){
-                                if (!labelL1List.contains(l.getLevel1Name())){
+                            for (Label l : labels) {
+                                if (!labelL1List.contains(l.getLevel1Name())) {
                                     System.out.println("=============FALSE=============");
                                     return;
                                 }
@@ -391,7 +389,7 @@ public class EsDemoTests {
      * curl -XGET "http://172.16.32.35:9200/companywarnings/_settings?pretty"
      */
     @Test
-    public void test03(){
+    public void test03() {
         // 1. 列出查询条件
         Long companyId = 114082L;
         String beginTime = "2019-07-22";
@@ -399,21 +397,21 @@ public class EsDemoTests {
 
         // 2.根据查询条件/查询或聚合需求构造QueryBuilder
         BoolQueryBuilder boolFilterQueryBuilder = QueryBuilders.boolQuery();
-        boolFilterQueryBuilder.filter(buildRangeQueryBuilder("noticeDate",beginTime,endTime));
-        boolFilterQueryBuilder.must(buildNestedQueryBuilder("relatedcompanyInfo","relatedcompanyInfo.companyId",companyId));
+        boolFilterQueryBuilder.filter(buildRangeQueryBuilder("noticeDate", beginTime, endTime));
+        boolFilterQueryBuilder.must(buildNestedQueryBuilder("relatedcompanyInfo", "relatedcompanyInfo.companyId", companyId));
 
         SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
         searchSourceBuilder.query(boolFilterQueryBuilder);
         searchSourceBuilder.size(1);
 
         NestedAggregationBuilder nestedStat =
-                AggregationBuilders.nested("nestedStat","relatedcompanyInfo")
-                        .subAggregation(AggregationBuilders.filter("filterTerm", QueryBuilders.termQuery("relatedcompanyInfo.companyId",companyId))
+                AggregationBuilders.nested("nestedStat", "relatedcompanyInfo")
+                        .subAggregation(AggregationBuilders.filter("filterTerm", QueryBuilders.termQuery("relatedcompanyInfo.companyId", companyId))
                                 .subAggregation(AggregationBuilders.terms("countSentimental").field("relatedcompanyInfo.sentimental"))
                         )
                         .subAggregation(AggregationBuilders.filter("nestedNegativeLabelStat",
                                 QueryBuilders.boolQuery()
-                                        .must(QueryBuilders.termQuery("relatedcompanyInfo.companyId",companyId))
+                                        .must(QueryBuilders.termQuery("relatedcompanyInfo.companyId", companyId))
                                         .must(QueryBuilders.rangeQuery("relatedcompanyInfo.sentimental").lt(0))
                                 )
                         );
@@ -421,16 +419,16 @@ public class EsDemoTests {
         DateHistogramAggregationBuilder dateHis =
                 AggregationBuilders.dateHistogram("dateHis").minDocCount(0).format("yyyy-MM-dd").field("noticeDate")
                         .dateHistogramInterval(DateHistogramInterval.days(1))
-                        .extendedBounds(new ExtendedBounds(beginTime,endTime))
+                        .extendedBounds(new ExtendedBounds(beginTime, endTime))
                         .subAggregation(AggregationBuilders.nested("dateHistogramHits", "relatedcompanyInfo")
-                                .subAggregation(AggregationBuilders.filter("filterTerm",QueryBuilders.termQuery("relatedcompanyInfo.companyId",companyId))
+                                .subAggregation(AggregationBuilders.filter("filterTerm", QueryBuilders.termQuery("relatedcompanyInfo.companyId", companyId))
                                         .subAggregation(AggregationBuilders.terms("dailyHits").field("relatedcompanyInfo.sentimental"))
                                 )
                         );
 
         TermsAggregationBuilder newsSourceTerm = AggregationBuilders.terms("newsSources").field("typeCode");
 
-       // searchSourceBuilder.aggregation(nestedStat).aggregation(dateHis).aggregation(newsSourceTerm);
+        // searchSourceBuilder.aggregation(nestedStat).aggregation(dateHis).aggregation(newsSourceTerm);
         // 这里经测试,跟aggregation的先后顺序无关,彼此是相互独立的
         searchSourceBuilder.aggregation(newsSourceTerm).aggregation(nestedStat).aggregation(dateHis);
 
@@ -440,30 +438,30 @@ public class EsDemoTests {
 
         try {
             searchResponse = client().search(searchRequest, RequestOptions.DEFAULT);
-            if(searchResponse.status()==RestStatus.OK){
-                Map<String,Object> map = new HashMap<>();
+            if (searchResponse.status() == RestStatus.OK) {
+                Map<String, Object> map = new HashMap<>();
                 Aggregations aggregations = searchResponse.getAggregations();
                 Terms terms = aggregations.get("newsSources");
-                List<? extends Terms.Bucket> buckets =  terms.getBuckets();
-                Map<String,Object> newsSourcesMap = new HashMap<>();
-                for(Terms.Bucket bucket:buckets){
-                    newsSourcesMap.put(String.valueOf(bucket.getKey()),bucket.getDocCount());
+                List<? extends Terms.Bucket> buckets = terms.getBuckets();
+                Map<String, Object> newsSourcesMap = new HashMap<>();
+                for (Terms.Bucket bucket : buckets) {
+                    newsSourcesMap.put(String.valueOf(bucket.getKey()), bucket.getDocCount());
                 }
-                map.put("newsSources",newsSourcesMap);
+                map.put("newsSources", newsSourcesMap);
 
 
-                Histogram histograms =  aggregations.get("dateHis");
-                List<? extends Histogram.Bucket> histogramsBuckets =  histograms.getBuckets();
-                Map<String,Object> dateHisList = new HashMap<>();
-                Map<String,Object> singleDateHisMap = null;
+                Histogram histograms = aggregations.get("dateHis");
+                List<? extends Histogram.Bucket> histogramsBuckets = histograms.getBuckets();
+                Map<String, Object> dateHisList = new HashMap<>();
+                Map<String, Object> singleDateHisMap = null;
 
-                for(Histogram.Bucket bucket:histogramsBuckets){
+                for (Histogram.Bucket bucket : histogramsBuckets) {
                     singleDateHisMap = new HashMap<>();
-                    singleDateHisMap.put("allCount",bucket.getDocCount());
-                    Nested date_histogram_hits_nested =  bucket.getAggregations().get("dateHistogramHits");
+                    singleDateHisMap.put("allCount", bucket.getDocCount());
+                    Nested date_histogram_hits_nested = bucket.getAggregations().get("dateHistogramHits");
                     ParsedFilter filter_term = date_histogram_hits_nested.getAggregations().get("filterTerm");
                     ParsedLongTerms daily_hits = filter_term.getAggregations().get("dailyHits");
-                    List<? extends Terms.Bucket> daily_hits_Buckets =  daily_hits.getBuckets();
+                    List<? extends Terms.Bucket> daily_hits_Buckets = daily_hits.getBuckets();
                     long negativeCount = 0;
 
                     for (int i = 0, daily_hits_bucketsSize = daily_hits_Buckets.size(); i < daily_hits_bucketsSize; i++) {
@@ -474,22 +472,22 @@ public class EsDemoTests {
                         }
                     }
                     singleDateHisMap.put("negativeCount", negativeCount);
-                    dateHisList.put(String.valueOf(bucket.getKeyAsString()),singleDateHisMap);
+                    dateHisList.put(String.valueOf(bucket.getKeyAsString()), singleDateHisMap);
 
                 }
-                map.put("dateHis",dateHisList);
+                map.put("dateHis", dateHisList);
 
-                Nested nested =  aggregations.get("nestedStat");
-                ParsedLongTerms sentimental  = ((ParsedFilter)(nested.getAggregations().get("filterTerm"))).
+                Nested nested = aggregations.get("nestedStat");
+                ParsedLongTerms sentimental = ((ParsedFilter) (nested.getAggregations().get("filterTerm"))).
                         getAggregations().get("countSentimental");
-                List<? extends Terms.Bucket> sentimentalBuckets =  sentimental.getBuckets();
-                Map<String,Object> sentimentalMap = new HashMap<>();
-                for(Terms.Bucket bucket:sentimentalBuckets){
-                    sentimentalMap.put(String.valueOf(bucket.getKey()),bucket.getDocCount());
+                List<? extends Terms.Bucket> sentimentalBuckets = sentimental.getBuckets();
+                Map<String, Object> sentimentalMap = new HashMap<>();
+                for (Terms.Bucket bucket : sentimentalBuckets) {
+                    sentimentalMap.put(String.valueOf(bucket.getKey()), bucket.getDocCount());
                 }
 
-                sentimentalMap.put("all",(int) searchResponse.getHits().getTotalHits());
-                map.put("sentimental",sentimentalMap);
+                sentimentalMap.put("all", (int) searchResponse.getHits().getTotalHits());
+                map.put("sentimental", sentimentalMap);
 
                 System.out.println(JSON.toJSONString(map));
             }
@@ -498,15 +496,15 @@ public class EsDemoTests {
         }
     }
 
-    private QueryBuilder buildRangeQueryBuilder(String keyWord,String beginTime,String endTime){
+    private QueryBuilder buildRangeQueryBuilder(String keyWord, String beginTime, String endTime) {
         RangeQueryBuilder rangeQueryBuilder = QueryBuilders.rangeQuery(keyWord);
         rangeQueryBuilder.lt(DateUtils.getISODateStr(DateUtils.getISODateTime(endTime + " 00:00:00").plusDays(1).minusHours(8L)));
         rangeQueryBuilder.gte(DateUtils.getISODateStr(DateUtils.getISODateTime(beginTime + " 00:00:00").minusHours(8L)));
         return rangeQueryBuilder;
     }
 
-    private QueryBuilder buildNestedQueryBuilder(String path, String queryTerm,Object termValue){
-        NestedQueryBuilder nestedQueryBuilder = QueryBuilders.nestedQuery(path,QueryBuilders.termQuery(queryTerm,termValue),ScoreMode.None);
+    private QueryBuilder buildNestedQueryBuilder(String path, String queryTerm, Object termValue) {
+        NestedQueryBuilder nestedQueryBuilder = QueryBuilders.nestedQuery(path, QueryBuilders.termQuery(queryTerm, termValue), ScoreMode.None);
         return nestedQueryBuilder;
     }
 
@@ -515,28 +513,28 @@ public class EsDemoTests {
      * 数据量如果过大,则分页导出
      */
     @Test
-    public void exportEsData(){
+    public void exportEsData() {
         String filePath = "D:\\es\\";
         SearchRequest searchRequest = new SearchRequest(INDEX);
         SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
         int pageSize = 10000;
         long begin = System.currentTimeMillis();
-        for (int i = 1;i<= 10;i++){
-            searchSourceBuilder.from(pageSize*(i-1));
+        for (int i = 1; i <= 10; i++) {
+            searchSourceBuilder.from(pageSize * (i - 1));
             searchSourceBuilder.size(pageSize);
             searchRequest.source(searchSourceBuilder);
             BufferedWriter bw = null;
             try {
                 SearchResponse searchResponse = client().search(searchRequest, RequestOptions.DEFAULT);
                 String indexPath = filePath + "es" + i + ".json";
-                bw = new BufferedWriter(new FileWriter(indexPath,true));
+                bw = new BufferedWriter(new FileWriter(indexPath, true));
                 if (searchResponse.status() == RestStatus.OK) {
                     SearchHits hits = searchResponse.getHits();
                     // long total = hits.getTotalHits(); 查看总记录条数
                     SearchHit[] searchHits = hits.getHits();
                     for (SearchHit hit : searchHits) {
                         String json = hit.getSourceAsString();
-                        if (StringUtils.isNotEmpty(json)){
+                        if (StringUtils.isNotEmpty(json)) {
                             bw.write(json);
                             bw.write("\r\n");
                         }
@@ -544,7 +542,7 @@ public class EsDemoTests {
                 }
             } catch (IOException e) {
                 e.printStackTrace();
-                if (bw != null){
+                if (bw != null) {
                     try {
                         bw.close();
                     } catch (IOException e1) {
@@ -556,29 +554,70 @@ public class EsDemoTests {
         System.out.println("耗时:" + (System.currentTimeMillis() - begin) + "ms");
     }
 
+    @Test
+    public void createIndex() {
+        EsClient.deleteIndex(INDEX);
+        EsClient.createIndex();
+    }
+
     /**
      * json格式的数据导入到Elasticsearch
-     *  分页导入
+     * 分页导入
      */
     @Test
-    public void importData(){
+    public void importData() {
         RestHighLevelClient client = EsClient.client();
-        String filePath = "D:\\es\\";
+        String filePath = "K:\\es\\";
         BufferedReader br = null;
         BulkRequest request = null;
         String json = null;
-        for (int i = 1;i<= 10;i++){
+        long count = 0;
+        List<Map<String, Object>> list = new ArrayList<>();
+        Map<String, Object> map = null;
+        long begin = System.currentTimeMillis();
+        for (int i = 1; i <= 10; i++) {
             try {
-                br = new BufferedReader(new FileReader(filePath + "es" + i + ".json"));
+                String indexPath = filePath + "es" + i + ".json";
+                br = new BufferedReader(new FileReader(indexPath));
                 request = new BulkRequest();
-                while ((json = br.readLine()) != null){
-                    request.add(new IndexRequest(INDEX).source(json, XContentType.JSON));
+                while ((json = br.readLine()) != null) {
+                    //  map = JSONObject.parseObject(json, new TypeReference<Map<String, Object>>() {});
+                    //  list.add(map);
+                    count++;
+                    request.add(new IndexRequest(INDEX, TYPE, JSON.parseObject(json).getString("id")).source(json, XContentType.JSON));
                 }
                 client.bulk(request, RequestOptions.DEFAULT);
+                // EsClient.bulkDate(INDEX,TYPE,"id",list);
             } catch (IOException e) {
                 e.printStackTrace();
             }
         }
+
+        System.out.println("耗时：" + (System.currentTimeMillis() - begin) + "ms");
+        // 校验数据是否全部导入成功
+        SearchRequest searchRequest = new SearchRequest(INDEX);
+        try {
+            SearchResponse searchResponse = client().search(searchRequest, RequestOptions.DEFAULT);
+            if (searchResponse.status() == RestStatus.OK) {
+                long total = searchResponse.getHits().getTotalHits();
+                System.out.println(total);
+                System.out.println(count);
+                if (count == total) {
+                    System.out.println("数据集导入成功！！！");
+                }
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 
+    @Test
+    public void search(){
+        SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
+        BoolQueryBuilder query = QueryBuilders.boolQuery();
+        query.must(QueryBuilders.termQuery("id",121509923L));
+        searchSourceBuilder.query(query);
+        List<Warning> list = EsClient.search(INDEX, searchSourceBuilder, Warning.class);
+        list.forEach(w -> System.out.println(w));
+    }
 }

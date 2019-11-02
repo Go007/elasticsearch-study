@@ -2,6 +2,6 @@ spring:
   data:
     elasticsearch:
       cluster-name: docker-cluster #cluster-name要与config/elasticsearch.yml中使用的集群名称一致
-      cluster-nodes: 192.168.157.128:9200 # 9200端口是用来让HTTP REST API来访问ElasticSearch，而9300端口是传输层监听的默认端口
+      cluster-nodes: 192.168.157.129:9200 # 9200端口是用来让HTTP REST API来访问ElasticSearch，而9300端口是传输层监听的默认端口
       repositories:
         enabled: true
