@@ -42,9 +42,9 @@ import java.util.Map;
  **/
 public class EsClient {
 
-    // private static final String HOST = "172.16.32.35";
+     private static final String HOST = "172.16.32.35";
 
-    private static final String HOST = "192.168.157.129";
+   // private static final String HOST = "192.168.157.129";
 
     private static final int PORT = 9200;
 

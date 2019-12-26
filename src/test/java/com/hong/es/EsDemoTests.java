@@ -36,6 +36,9 @@ import org.elasticsearch.search.aggregations.bucket.terms.ParsedStringTerms;
 import org.elasticsearch.search.aggregations.bucket.terms.Terms;
 import org.elasticsearch.search.aggregations.bucket.terms.TermsAggregationBuilder;
 import org.elasticsearch.search.builder.SearchSourceBuilder;
+import org.elasticsearch.search.sort.FieldSortBuilder;
+import org.elasticsearch.search.sort.SortBuilders;
+import org.elasticsearch.search.sort.SortOrder;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -338,13 +341,34 @@ public class EsDemoTests {
         q1.must(QueryBuilders.nestedQuery("relatedcompanyInfo.labels", q0, ScoreMode.Total));
         q1.must(QueryBuilders.termsQuery("relatedcompanyInfo.companyId", companyIds));
 
+        // 范围段或查询
+        q1.should(QueryBuilders.rangeQuery("relatedcompanyInfo.relevance").lt(0.2));
+        q1.should(QueryBuilders.rangeQuery("relatedcompanyInfo.relevance").from(0.2).to(0.4,false));
+        q1.should(QueryBuilders.rangeQuery("relatedcompanyInfo.relevance").from(0.4).to(0.6,false));
+        q1.should(QueryBuilders.rangeQuery("relatedcompanyInfo.relevance").from(0.6).to(0.8,false));
+       // q1.should(QueryBuilders.rangeQuery("relatedcompanyInfo.relevance").gte(0.8));
+
+
+
         companyWarningQuery.filter(QueryBuilders.nestedQuery("relatedcompanyInfo", q1, ScoreMode.Total));
         companyWarningQuery.filter(buildRangeQueryBuilder("noticeDate", beginTime, endTime));
 
         SearchRequest searchRequest = new SearchRequest(INDEX);
         SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
+        //searchSourceBuilder.size(30);
+        // 分页查询
+        searchSourceBuilder.from(0);
+        searchSourceBuilder.size(30);
+
+        // 排序
+        // 默认排序字段与排序方向
+        String sortField = "noticeDate";
+        SortOrder sortOrder = SortOrder.DESC;
+        FieldSortBuilder fsb = SortBuilders.fieldSort(sortField);
+        fsb.missing("_last");// null排在最后
+        fsb.order(sortOrder);
+
         searchSourceBuilder.query(companyWarningQuery);
-        // searchSourceBuilder.size(30);
         searchRequest.source(searchSourceBuilder);
 
         List<Warning> warnings = new ArrayList<>();
@@ -356,7 +380,7 @@ public class EsDemoTests {
             for (SearchHit hit : searchHits) {
                 sourceAsMap = hit.getSourceAsMap();
                 Warning warning = JSON.parseObject(JSON.toJSONString(sourceAsMap), Warning.class);
-                System.out.println(warning.getId());
+               // System.out.println(warning.getId());
                 List<RelatedcompanyInfo> list = warning.getRelatedcompanyInfo();
                 if (!CollectionUtils.isEmpty(list)) {
                     for (RelatedcompanyInfo c : list) {
@@ -620,4 +644,5 @@ public class EsDemoTests {
         List<Warning> list = EsClient.search(INDEX, searchSourceBuilder, Warning.class);
         list.forEach(w -> System.out.println(w));
     }
+
 }
