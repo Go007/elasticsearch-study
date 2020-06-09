@@ -1,6 +1,7 @@
 package com.hong.es;
 
 import com.alibaba.fastjson.JSON;
+import com.alibaba.fastjson.JSONObject;
 import com.hong.es.entity.CommonCountVO;
 import com.hong.es.entity.to.Label;
 import com.hong.es.entity.to.RelatedcompanyInfo;
@@ -343,11 +344,10 @@ public class EsDemoTests {
 
         // 范围段或查询
         q1.should(QueryBuilders.rangeQuery("relatedcompanyInfo.relevance").lt(0.2));
-        q1.should(QueryBuilders.rangeQuery("relatedcompanyInfo.relevance").from(0.2).to(0.4,false));
-        q1.should(QueryBuilders.rangeQuery("relatedcompanyInfo.relevance").from(0.4).to(0.6,false));
-        q1.should(QueryBuilders.rangeQuery("relatedcompanyInfo.relevance").from(0.6).to(0.8,false));
-       // q1.should(QueryBuilders.rangeQuery("relatedcompanyInfo.relevance").gte(0.8));
-
+        q1.should(QueryBuilders.rangeQuery("relatedcompanyInfo.relevance").from(0.2).to(0.4, false));
+        q1.should(QueryBuilders.rangeQuery("relatedcompanyInfo.relevance").from(0.4).to(0.6, false));
+        q1.should(QueryBuilders.rangeQuery("relatedcompanyInfo.relevance").from(0.6).to(0.8, false));
+        // q1.should(QueryBuilders.rangeQuery("relatedcompanyInfo.relevance").gte(0.8));
 
 
         companyWarningQuery.filter(QueryBuilders.nestedQuery("relatedcompanyInfo", q1, ScoreMode.Total));
@@ -380,7 +380,7 @@ public class EsDemoTests {
             for (SearchHit hit : searchHits) {
                 sourceAsMap = hit.getSourceAsMap();
                 Warning warning = JSON.parseObject(JSON.toJSONString(sourceAsMap), Warning.class);
-               // System.out.println(warning.getId());
+                // System.out.println(warning.getId());
                 List<RelatedcompanyInfo> list = warning.getRelatedcompanyInfo();
                 if (!CollectionUtils.isEmpty(list)) {
                     for (RelatedcompanyInfo c : list) {
@@ -636,13 +636,40 @@ public class EsDemoTests {
     }
 
     @Test
-    public void search(){
+    public void search() {
         SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
         BoolQueryBuilder query = QueryBuilders.boolQuery();
-        query.must(QueryBuilders.termQuery("id",121509923L));
+        query.must(QueryBuilders.termQuery("id", 121509923L));
         searchSourceBuilder.query(query);
         List<Warning> list = EsClient.search(INDEX, searchSourceBuilder, Warning.class);
         list.forEach(w -> System.out.println(w));
+    }
+
+    @Test
+    public void testScroll() throws Exception {
+        SearchRequest searchRequest = new SearchRequest();
+        searchRequest.indices(INDEX);
+
+        SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
+        searchSourceBuilder.query();
+        searchSourceBuilder.size(10);
+        searchRequest.source(searchSourceBuilder);
+
+//        List<SearchHit> list = NewsSearchBo.scrollSearchAll(client(),searchRequest);
+//        System.out.println(list);
+
+        JSONObject obj = NewsSearchBo.scrollSearchPage(client(), searchRequest, null);
+        System.out.println(obj);
+        JSONObject obj2 = NewsSearchBo.scrollSearchPage(client(), null, obj.getString("scrollId"));
+        System.out.println(obj2);
+        JSONObject obj3 = NewsSearchBo.scrollSearchPage(client(), null, obj2.getString("scrollId"));
+        System.out.println(obj3);
+    }
+
+    @Test
+    public void testScrollPage() throws Exception {
+        List<Warning> list = NewsSearchBo.pageQuery2(3,10,null);
+        System.out.println(JSON.toJSONString(list));
     }
 
 }

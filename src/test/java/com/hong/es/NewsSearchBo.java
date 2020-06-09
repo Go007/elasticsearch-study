@@ -6,20 +6,19 @@ package com.hong.es;
  **/
 
 import com.alibaba.fastjson.JSON;
+import com.alibaba.fastjson.JSONObject;
 import com.hong.es.entity.to.Warning;
 import com.hong.es.util.DateUtils;
 import com.hong.es.util.EsClient;
 import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.lucene.search.join.ScoreMode;
-import org.elasticsearch.action.search.ClearScrollRequest;
-import org.elasticsearch.action.search.SearchRequest;
-import org.elasticsearch.action.search.SearchResponse;
-import org.elasticsearch.action.search.SearchScrollRequest;
+import org.elasticsearch.action.search.*;
 import org.elasticsearch.client.RequestOptions;
 import org.elasticsearch.client.RestHighLevelClient;
 import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.index.query.BoolQueryBuilder;
+import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.index.query.RangeQueryBuilder;
 import org.elasticsearch.rest.RestStatus;
@@ -38,10 +37,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.junit4.SpringRunner;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 @RunWith(SpringRunner.class)
 @SpringBootTest
@@ -55,10 +51,10 @@ public class NewsSearchBo {
     public void execute() {
         EsWarningParameter parameter = new EsWarningParameter();
         parameter.setCompanyId(Arrays.asList(514332L));
-        parameter.setDataType(Arrays.asList(0,1));
+        parameter.setDataType(Arrays.asList(0, 1));
         parameter.setStartNoticeDate("2019-09-26");
         parameter.setEndNoticeDate("2019-12-26");
-        parameter.setRelevanceName(Arrays.asList("高度相关","紧密相关","一般相关","较弱相关","弱相关"));
+        parameter.setRelevanceName(Arrays.asList("高度相关", "紧密相关", "一般相关", "较弱相关", "弱相关"));
         parameter.setPage(1);
         parameter.setSize(10);
 
@@ -132,15 +128,19 @@ public class NewsSearchBo {
                 List<String> relNameList = parameter.getRelevanceName();
                 if (relNameList.contains("弱相关")) {
                     boolQuery.should(QueryBuilders.rangeQuery("relatedcompanyInfo.relevance").lt(0.2));
-                } if (relNameList.contains("较弱相关")) {
+                }
+                if (relNameList.contains("较弱相关")) {
                     boolQuery.should(QueryBuilders.rangeQuery("relatedcompanyInfo.relevance").from(0.2).to(0.4, false));
-                } if
+                }
+                if
                 (relNameList.contains("一般相关")) {
                     boolQuery.should(QueryBuilders.rangeQuery("relatedcompanyInfo.relevance").from(0.4).to(0.6, false));
-                } if
+                }
+                if
                 (relNameList.contains("紧密相关")) {
                     boolQuery.should(QueryBuilders.rangeQuery("relatedcompanyInfo.relevance").from(0.6).to(0.8, false));
-                } if
+                }
+                if
                 (relNameList.contains("高度相关")) {
                     boolQuery.should(QueryBuilders.rangeQuery("relatedcompanyInfo.relevance").gte(0.8));
                 }
@@ -238,9 +238,9 @@ public class NewsSearchBo {
         int curPage = parameter.getPage() == null ? 1 : parameter.getPage();
         int rows = parameter.getSize() == null ? 10 : parameter.getSize();
 
-		int start = rows * (curPage - 1);
-		searchSourceBuilder.from(start);
-		searchSourceBuilder.size(rows);
+        int start = rows * (curPage - 1);
+        searchSourceBuilder.from(start);
+        searchSourceBuilder.size(rows);
 
         searchSourceBuilder.query(query);
         searchSourceBuilder.sort(fsb);
@@ -251,10 +251,10 @@ public class NewsSearchBo {
         try {
             List<Warning> warnings = new ArrayList<>();
             searchResponse = EsClient.client().search(searchRequest, RequestOptions.DEFAULT);
-           // List<SearchHit> searchHits = scrollSearchAll(EsClient.client(), searchRequest);
+            // List<SearchHit> searchHits = scrollSearchAll(EsClient.client(), searchRequest);
 
             if (searchResponse.status() == RestStatus.OK) {
-           // if (CollectionUtils.isNotEmpty(searchHits)) {
+                // if (CollectionUtils.isNotEmpty(searchHits)) {
 
                 SearchHits hits = searchResponse.getHits();
                 long totalHits = hits.getTotalHits();
@@ -303,17 +303,17 @@ public class NewsSearchBo {
 
                 }
 
-              //  page.setTotalCount((long) warnings.size());
+                //  page.setTotalCount((long) warnings.size());
                 // 手动分页
-              //  int start = rows * (curPage - 1);
-              //  int end = (start + rows) > warnings.size() ? warnings.size() : start + rows;
-              //  warnings = warnings.subList(start, end);
+                //  int start = rows * (curPage - 1);
+                //  int end = (start + rows) > warnings.size() ? warnings.size() : start + rows;
+                //  warnings = warnings.subList(start, end);
             }
 
             page.setItems(warnings);
             page.setPage(parameter.getPage());
             page.setSize(parameter.getSize());
-           // page.setTotalCount(page.getTotalCount() == null ? 0 : page.getTotalCount());
+            // page.setTotalCount(page.getTotalCount() == null ? 0 : page.getTotalCount());
 
             System.out.println("======================");
             System.out.println(page);
@@ -387,27 +387,168 @@ public class NewsSearchBo {
      * @throws IOException
      */
     public static List<SearchHit> scrollSearchAll(RestHighLevelClient restHighLevelClient, SearchRequest searchRequest) throws IOException {
-        Scroll scroll = new Scroll(TimeValue.timeValueMinutes(1));
+        // 初始化 scroll
+        Scroll scroll = new Scroll(TimeValue.timeValueMinutes(1));// 设定滚动时间间隔
         searchRequest.scroll(scroll);
-        SearchResponse searchResponse = restHighLevelClient.search(searchRequest);
+
+        SearchResponse searchResponse = restHighLevelClient.search(searchRequest, RequestOptions.DEFAULT); //restHighLevelClient.search(searchRequest);
+        // scrollId: DnF1ZXJ5VGhlbkZldGNoBQAAAAAABHpEFnQxRkFsSE1zUkhDV2tFM0dYYkFyMkEAAAAAAAR6RRZ0MUZBbEhNc1JIQ1drRTNHWGJBcjJBAAAAAAAEekYWdDFGQWxITXNSSENXa0UzR1hiQXIyQQAAAAAABHpHFnQxRkFsSE1zUkhDV2tFM0dYYkFyMkEAAAAAAAR6SBZ0MUZBbEhNc1JIQ1drRTNHWGJBcjJB
         String scrollId = searchResponse.getScrollId();
         SearchHit[] hits = searchResponse.getHits().getHits();
         List<SearchHit> resultSearchHit = new ArrayList<>();
+
+        // 遍历搜索命中的数据,直到没有数据
         while (hits != null && hits.length > 0) {
             for (SearchHit hit : hits) {
                 resultSearchHit.add(hit);
             }
             SearchScrollRequest searchScrollRequest = new SearchScrollRequest(scrollId);
             searchScrollRequest.scroll(scroll);
-            SearchResponse searchScrollResponse = restHighLevelClient.searchScroll(searchScrollRequest);
+            SearchResponse searchScrollResponse = restHighLevelClient.scroll(searchScrollRequest, RequestOptions.DEFAULT);// restHighLevelClient.searchScroll(searchScrollRequest);
             scrollId = searchScrollResponse.getScrollId();
             hits = searchScrollResponse.getHits().getHits();
         }
         //及时清除es快照，释放资源
         ClearScrollRequest clearScrollRequest = new ClearScrollRequest();
         clearScrollRequest.addScrollId(scrollId);
-        restHighLevelClient.clearScroll(clearScrollRequest);
+        ClearScrollResponse clearScrollResponse = restHighLevelClient.clearScroll(clearScrollRequest, RequestOptions.DEFAULT);
+        System.out.println(clearScrollResponse.isSucceeded());
         return resultSearchHit;
+    }
+
+    public static JSONObject scrollSearchPage(RestHighLevelClient restHighLevelClient, SearchRequest searchRequest, String scrollId) throws Exception {
+        JSONObject jsonObject = new JSONObject();
+        List<Warning> list = new ArrayList<>();
+
+        Scroll scroll = new Scroll(TimeValue.timeValueMinutes(1));
+        SearchHit[] hits;
+
+        // 第一次查询
+        if (StringUtils.isEmpty(scrollId)) {
+            searchRequest.scroll(scroll);
+            SearchResponse searchResponse = restHighLevelClient.search(searchRequest, RequestOptions.DEFAULT); //restHighLevelClient.search(searchRequest);
+            hits = searchResponse.getHits().getHits();
+            for (SearchHit hit : hits) {
+                list.add(JSON.parseObject(hit.getSourceAsString(), Warning.class));
+            }
+
+            jsonObject.put("scrollId", searchResponse.getScrollId());
+            jsonObject.put("data", list);
+            return jsonObject;
+        }
+
+        // 非首次查询,使用 游标
+        SearchScrollRequest searchScrollRequest = new SearchScrollRequest(scrollId);
+        searchScrollRequest.scroll(scroll);
+        SearchResponse searchScrollResponse = restHighLevelClient.scroll(searchScrollRequest, RequestOptions.DEFAULT);
+        hits = searchScrollResponse.getHits().getHits();
+        for (SearchHit hit : hits) {
+            list.add(JSON.parseObject(hit.getSourceAsString(), Warning.class));
+        }
+
+        jsonObject.put("scrollId", searchScrollResponse.getScrollId());
+        jsonObject.put("data", list);
+
+//        ClearScrollRequest clearScrollRequest = new ClearScrollRequest();
+//        clearScrollRequest.addScrollId(scrollId);
+//        ClearScrollResponse clearScrollResponse = restHighLevelClient.clearScroll(clearScrollRequest, RequestOptions.DEFAULT);
+//        System.out.println(clearScrollResponse.isSucceeded());
+
+        return jsonObject;
+    }
+
+    public static List<Warning> pageQuery(int pageNum, int pageSize, QueryBuilder queryBuilder) throws Exception {
+        List<Warning> list = new ArrayList<>();
+        if (pageNum < 0) {
+            return list;
+        }
+
+        SearchRequest searchRequest = new SearchRequest();
+        searchRequest.indices(INDEX);
+        SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
+        searchSourceBuilder.query(queryBuilder);
+        searchSourceBuilder.size(pageSize);
+        searchRequest.source(searchSourceBuilder);
+
+        Scroll scroll = new Scroll(TimeValue.timeValueMinutes(1));
+        searchRequest.scroll(scroll);
+        SearchResponse searchResponse = EsClient.client().search(searchRequest, RequestOptions.DEFAULT);
+        long total = searchResponse.getHits().getTotalHits();
+        if (pageNum >= total) {
+            return list;
+        }
+
+        SearchHit[] hits = null;
+        if (pageNum == 1) {
+            hits = searchResponse.getHits().getHits();
+        } else {
+            String scrollId = searchResponse.getScrollId();
+            SearchScrollRequest searchScrollRequest = null;
+            for (int i = 1; i < pageNum; i++) {
+                searchScrollRequest = new SearchScrollRequest(scrollId);
+                searchScrollRequest.scroll(scroll);
+                searchResponse = EsClient.client().scroll(searchScrollRequest, RequestOptions.DEFAULT);
+                scrollId = searchResponse.getScrollId();
+            }
+
+            hits = searchResponse.getHits().getHits();
+        }
+
+        for (SearchHit hit : hits) {
+            list.add(JSON.parseObject(hit.getSourceAsString(), Warning.class));
+        }
+
+        return list;
+    }
+
+    /**
+     * 改进版:减少 scroll 循环次数
+     *
+     * @param pageNum
+     * @param pageSize
+     * @param queryBuilder
+     * @return
+     * @throws Exception
+     */
+    public static List<Warning> pageQuery2(int pageNum, int pageSize, QueryBuilder queryBuilder) throws Exception {
+        List<Warning> list = new ArrayList<>();
+        if (pageNum < 1) {
+            return list;
+        }
+
+        int pageNewSize = pageNum == 1 ? pageSize : (pageNum - 1) * pageSize;
+        SearchRequest searchRequest = new SearchRequest();
+        searchRequest.indices(INDEX);
+        SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
+        searchSourceBuilder.query(queryBuilder);
+        searchSourceBuilder.size(pageNewSize);
+        searchRequest.source(searchSourceBuilder);
+
+        Scroll scroll = new Scroll(TimeValue.timeValueMinutes(1));
+        searchRequest.scroll(scroll);
+        SearchResponse searchResponse = EsClient.client().search(searchRequest, RequestOptions.DEFAULT);
+        long total = searchResponse.getHits().getTotalHits();
+        if (pageNum >= total) {
+            return list;
+        }
+
+        SearchHit[] hits = null;
+        if (pageNum == 1) {
+            hits = searchResponse.getHits().getHits();
+        } else {
+            SearchScrollRequest searchScrollRequest = null;
+            searchScrollRequest = new SearchScrollRequest(searchResponse.getScrollId());
+            searchScrollRequest.scroll(scroll);
+            searchResponse = EsClient.client().scroll(searchScrollRequest, RequestOptions.DEFAULT);
+
+            hits = searchResponse.getHits().getHits();
+        }
+
+        for (SearchHit hit : hits) {
+            list.add(JSON.parseObject(hit.getSourceAsString(), Warning.class));
+        }
+
+        return list;
     }
 
 
