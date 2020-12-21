@@ -89,7 +89,7 @@ public class RiskEventWarningTest {
             boolQuery.filter(rangeQueryBuilder);
         }
 
-        RestHighLevelClient client = buildClient(INDEX_COMPANY_RISK_EVENT);
+        RestHighLevelClient client = buildClient();
         String sortField = "event_date";
         SortOrder sortOrder = SortOrder.DESC;
         FieldSortBuilder fsb = SortBuilders.fieldSort(sortField);
@@ -111,13 +111,13 @@ public class RiskEventWarningTest {
         }
 
         SearchHits hits = searchResponse.getHits();
-       // long totalHits = hits.getTotalHits();
-       // System.out.println(totalHits);
+        // long totalHits = hits.getTotalHits();
+        // System.out.println(totalHits);
         // 使用 jest 解决 因 ES server版本与 RestHighLevelClient 不匹配取法获取 total
-        JestClient jestClient = buildJestClient(INDEX_COMPANY_RISK_EVENT);
+        JestClient jestClient = buildJestClient();
         Search search = new Search.Builder(searchSourceBuilder.toString()).addIndex(INDEX_COMPANY_RISK_EVENT).build();
         JestResult jestResult = jestClient.execute(search);
-        if (jestResult.isSucceeded()){
+        if (jestResult.isSucceeded()) {
             long total = jestResult.getJsonObject().getAsJsonObject("hits").getAsJsonObject("total").get("value").getAsLong();
             System.out.println(total);
         }
@@ -199,7 +199,7 @@ public class RiskEventWarningTest {
         }
     }
 
-    public RestHighLevelClient buildClient(String index) {
+    public RestHighLevelClient buildClient() {
         RestHighLevelClient client = null;
         try {
             if (client != null) {
@@ -221,10 +221,10 @@ public class RiskEventWarningTest {
         return client;
     }
 
-    public JestClient buildJestClient(String index){
+    public JestClient buildJestClient() {
         JestClientFactory factory = new JestClientFactory();
         factory.setHttpClientConfig(new HttpClientConfig.Builder("http://" + HOST + ":" + PORT)
-        .connTimeout(60000).readTimeout(60000).multiThreaded(true).build());
+                .connTimeout(60000).readTimeout(60000).multiThreaded(true).build());
         return factory.getObject();
     }
 
