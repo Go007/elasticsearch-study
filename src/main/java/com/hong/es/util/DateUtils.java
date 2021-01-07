@@ -195,5 +195,29 @@ public class DateUtils {
         LocalTime localTime = LocalTime.of(hour, minute, second);
         return LocalDateTime.of(date, localTime);
     }
+
+    public static void main(String[] args) {
+        String tradeDate = "20201223";
+        String tradeTime = "";
+        if (StringUtils.isNotEmpty(tradeTime) && tradeTime.length() < 6){
+            int diff = 6 - tradeTime.length();
+            String prefix = "0";
+            while (diff > 1){
+                prefix += "0";
+                diff--;
+            }
+            tradeTime = prefix + tradeTime;
+        }else {
+            tradeTime = "000000";
+        }
+        LocalDateTime ldt =  parseStringToLocalDateTime(tradeDate.substring(0,4) + "-" + tradeDate.substring(4,6) + "-" + tradeDate.substring(6) + " "
+                + tradeTime.substring(0,2) + ":" + tradeTime.substring(2,4) + ":" + tradeTime.substring(4),"yyyy-MM-dd HH:mm:ss");
+        System.out.println(ldt);
+    }
+
+    public static LocalDateTime parseStringToLocalDateTime(String time, String format) {
+        DateTimeFormatter df = DateTimeFormatter.ofPattern(format);
+        return LocalDateTime.parse(time, df);
+    }
 }
 

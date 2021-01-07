@@ -30,7 +30,9 @@ import org.junit.runner.RunWith;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.junit4.SpringRunner;
 
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * @Description: 风险事件预警ES查询
@@ -42,8 +44,8 @@ import java.util.Map;
 @SpringBootTest
 public class RiskEventWarningTest {
 
-    private static final String INDEX_RISK_EVENT_DETAIL = "risk_event_detail";
-    private static final String INDEX_COMPANY_RISK_EVENT = "company_risk_event";
+    private static final String INDEX_RISK_EVENT_DETAIL = "risk_event_detail_es";
+    private static final String INDEX_COMPANY_RISK_EVENT = "project_risk_event_es";
 
     private static final String HOST = "172.16.79.58";
     private static final int PORT = 9200;
@@ -53,12 +55,18 @@ public class RiskEventWarningTest {
     @Test
     public void pageList() throws Exception {
         RiskEventWarningParameter param = new RiskEventWarningParameter();
-        param.setCompanyName("建设集团");
-        param.setEventRank("高");
-        param.setEventDateBegin("2019-01-01");
-        param.setEventDateEnd("2020-12-31");
+        //param.setCompanyName("建设集团");
+        // param.setEventRank("高");
+        param.setCompanyId("368263");
+        param.setEventDateBegin("2020-10-06");
+        param.setEventDateEnd("2021-01-06");
 
         BoolQueryBuilder boolQuery = QueryBuilders.boolQuery();
+
+        if (StringUtils.isNotEmpty(param.getCompanyId())) {
+            boolQuery.must(QueryBuilders.termsQuery("company_id", param.getCompanyId()));
+        }
+
         if (StringUtils.isNotEmpty(param.getEventTitle())) {
             BoolQueryBuilder boolFuzzyQuery = QueryBuilders.boolQuery();
             boolFuzzyQuery.should(QueryBuilders.wildcardQuery("event_title", "*" + param.getEventTitle() + "*"));
@@ -197,6 +205,22 @@ public class RiskEventWarningTest {
         public void setSize(Integer size) {
             this.size = size;
         }
+
+        public Long getRowSid() {
+            return rowSid;
+        }
+
+        public void setRowSid(Long rowSid) {
+            this.rowSid = rowSid;
+        }
+
+        public String getCompanyId() {
+            return companyId;
+        }
+
+        public void setCompanyId(String companyId) {
+            this.companyId = companyId;
+        }
     }
 
     public RestHighLevelClient buildClient() {
@@ -226,6 +250,29 @@ public class RiskEventWarningTest {
         factory.setHttpClientConfig(new HttpClientConfig.Builder("http://" + HOST + ":" + PORT)
                 .connTimeout(60000).readTimeout(60000).multiThreaded(true).build());
         return factory.getObject();
+    }
+
+    @Test
+    public void testGetEventType() throws Exception {
+        SearchRequest searchRequest = new SearchRequest(INDEX_COMPANY_RISK_EVENT);
+        SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
+        searchSourceBuilder.size(2000);
+        searchRequest.source(searchSourceBuilder);
+        RestHighLevelClient client = buildClient();
+        SearchResponse searchResponse = client.search(searchRequest, RequestOptions.DEFAULT);
+        SearchHits hits = searchResponse.getHits();
+        SearchHit[] searchHits = hits.getHits();
+
+        Set<String> eventTypeSet = new HashSet<>();
+        for (SearchHit hit : searchHits) {
+            eventTypeSet.add((String) hit.getSourceAsMap().get("event_type"));
+        }
+
+        StringBuilder sb = new StringBuilder();
+        for (String s : eventTypeSet) {
+            sb.append(s).append(",");
+        }
+        System.out.println(sb);
     }
 
 }
